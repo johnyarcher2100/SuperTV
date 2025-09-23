@@ -42,12 +42,11 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: true,
-    minify: 'terser',
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {
-          'video-libs': ['hls.js'],
-          'vendor': ['video.js']
+          'video-libs': ['hls.js']
         }
       }
     }
