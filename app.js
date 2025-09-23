@@ -526,9 +526,9 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
             category: channel.category
         }));
 
-        // 跳轉到播放頁面
+        // 跳轉到播放頁面（避免被彈窗阻擋）
         const playerUrl = `player.html?channel=${channelData}`;
-        window.open(playerUrl, '_blank');
+        window.location.assign(playerUrl);
     }
 
     updateChannelSelection(channelId) {
@@ -1185,7 +1185,9 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    window.superTV = new SuperTVApp();
+    if (!window.superTV) {
+        window.superTV = new SuperTVApp();
+    }
 });
 
 // Save settings before page unload
