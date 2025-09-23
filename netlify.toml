@@ -1,6 +1,6 @@
 [build]
-  command = ""
-  publish = "."
+  command = "npm run build"
+  publish = "dist"
 
 # 本地開發（可選）
 [dev]
