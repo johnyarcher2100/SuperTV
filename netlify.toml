@@ -1,0 +1,46 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# 本地開發（可選）
+[dev]
+  command = "npm run dev"
+  port = 3000
+  targetPort = 3000
+  publish = "."
+
+# 反向代理（Production，對應 Vite 開發代理）
+# /api/playlist -> https://files.catbox.moe/id0n84.txt
+[[redirects]]
+  from = "/api/playlist"
+  to = "https://files.catbox.moe/id0n84.txt"
+  status = 200
+  force = true
+
+# /api/xiaofeng -> http://晓峰.azip.dpdns.org:5008/?type=m3u
+[[redirects]]
+  from = "/api/xiaofeng"
+  to = "http://晓峰.azip.dpdns.org:5008/?type=m3u"
+  status = 200
+  force = true
+
+# /api/miaokai -> https://files.catbox.moe/zyat7k.m3u
+[[redirects]]
+  from = "/api/miaokai"
+  to = "https://files.catbox.moe/zyat7k.m3u"
+  status = 200
+  force = true
+
+# /api/stream/* -> http://.../sub/:splat
+[[redirects]]
+  from = "/api/stream/*"
+  to = "http://breezy-audrie-zspace-7524863c.koyeb.app/sub/:splat"
+  status = 200
+  force = true
+
+# /api/proxy/* -> http://220.134.196.147:8567/:splat
+[[redirects]]
+  from = "/api/proxy/*"
+  to = "http://220.134.196.147:8567/:splat"
+  status = 200
+  force = true

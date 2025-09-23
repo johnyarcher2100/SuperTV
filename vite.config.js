@@ -5,7 +5,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: '0.0.0.0', // 允許外部訪問
-    open: true, // 自動打開瀏覽器
+    open: process.env.CI ? false : true, // 自動打開瀏覽器（CI 環境關閉）
     cors: true, // 啟用 CORS
     proxy: {
       '/api/playlist': {
