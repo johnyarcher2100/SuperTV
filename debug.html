@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperTV Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1e3c72;
+            color: white;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .debug-panel {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #ffd700;
+            color: #333;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover {
+            background: #ffed4e;
+        }
+        .channel-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .channel-item {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .channel-item:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+        .channel-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .channel-url {
+            font-size: 0.8em;
+            opacity: 0.7;
+            word-break: break-all;
+        }
+        .video-container {
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        video {
+            width: 100%;
+            height: 400px;
+        }
+        .status {
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 SuperTV Debug Mode</h1>
+        
+        <div class="debug-panel">
+            <h2>控制面板</h2>
+            <button onclick="loadGoldenSource()">載入黃金直播源</button>
+            <button onclick="clearChannels()">清除頻道</button>
+            <div class="status" id="status">準備就緒</div>
+        </div>
+
+        <div class="video-container">
+            <video id="video-player" controls preload="none">
+                您的瀏覽器不支援 HTML5 視頻播放。
+            </video>
+        </div>
+
+        <div id="channel-container" class="hidden">
+            <h2>頻道列表 (<span id="channel-count">0</span>)</h2>
+            <div class="channel-list" id="channel-list"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"></script>
+    <script>
+        let channels = [];
+        let hls = null;
+        
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+            console.log('Status:', message);
+        }
+        
+        async function loadGoldenSource() {
+            try {
+                updateStatus('載入黃金直播源...');
+
+                let text;
+                try {
+                    const response = await fetch('/api/playlist');
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    text = await response.text();
+                } catch (proxyError) {
+                    console.log('Using embedded data due to proxy error:', proxyError);
+                    text = getEmbeddedData();
+                }
+                console.log('Fetched text length:', text.length);
+                console.log('First 200 chars:', text.substring(0, 200));
+                
+                channels = parseChannels(text);
+                console.log('Parsed channels:', channels.length);
+                
+                renderChannels();
+                document.getElementById('channel-container').classList.remove('hidden');
+                
+                updateStatus(`成功載入 ${channels.length} 個頻道`);
+                
+            } catch (error) {
+                console.error('Error loading golden source:', error);
+                updateStatus(`載入失敗: ${error.message}`);
+            }
+        }
+        
+        function parseChannels(text) {
+            const lines = text.trim().split('\n');
+            const parsed = [];
+            let id = 1;
+            
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#')) continue;
+                
+                if (trimmed.includes(',') && trimmed.includes('http')) {
+                    const commaIndex = trimmed.indexOf(',');
+                    const name = trimmed.substring(0, commaIndex).trim();
+                    const url = trimmed.substring(commaIndex + 1).trim();
+                    
+                    if (name && url.startsWith('http')) {
+                        parsed.push({
+                            id: id++,
+                            name: name,
+                            url: url
+                        });
+                    }
+                }
+            }
+            
+            return parsed;
+        }
+        
+        function renderChannels() {
+            const container = document.getElementById('channel-list');
+            const countElement = document.getElementById('channel-count');
+            
+            countElement.textContent = channels.length;
+            container.innerHTML = '';
+            
+            channels.forEach(channel => {
+                const item = document.createElement('div');
+                item.className = 'channel-item';
+                item.onclick = () => playChannel(channel);
+                
+                item.innerHTML = `
+                    <div class="channel-name">${channel.name}</div>
+                    <div class="channel-url">${channel.url}</div>
+                `;
+                
+                container.appendChild(item);
+            });
+        }
+        
+        async function playChannel(channel) {
+            try {
+                updateStatus(`載入頻道: ${channel.name}`);
+                
+                const video = document.getElementById('video-player');
+                
+                // Clean up existing HLS
+                if (hls) {
+                    hls.destroy();
+                    hls = null;
+                }
+                
+                if (Hls.isSupported() && channel.url.includes('.m3u8')) {
+                    // Use HLS.js
+                    hls = new Hls({
+                        enableWorker: true,
+                        lowLatencyMode: true
+                    });
+                    
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        updateStatus(`${channel.name} - 準備播放`);
+                        video.play().catch(e => console.log('Autoplay prevented:', e));
+                    });
+                    
+                    hls.on(Hls.Events.ERROR, (event, data) => {
+                        console.error('HLS Error:', data);
+                        updateStatus(`播放錯誤: ${data.details}`);
+                    });
+                    
+                    hls.attachMedia(video);
+                    hls.loadSource(channel.url);
+                    
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Native HLS support (Safari)
+                    video.src = channel.url;
+                    video.play().catch(e => console.log('Autoplay prevented:', e));
+                    updateStatus(`${channel.name} - 使用原生播放器`);
+                    
+                } else {
+                    // Try direct playback
+                    video.src = channel.url;
+                    video.play().catch(e => console.log('Autoplay prevented:', e));
+                    updateStatus(`${channel.name} - 嘗試直接播放`);
+                }
+                
+            } catch (error) {
+                console.error('Error playing channel:', error);
+                updateStatus(`播放失敗: ${error.message}`);
+            }
+        }
+        
+        function clearChannels() {
+            channels = [];
+            document.getElementById('channel-list').innerHTML = '';
+            document.getElementById('channel-count').textContent = '0';
+            document.getElementById('channel-container').classList.add('hidden');
+            
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
+            
+            const video = document.getElementById('video-player');
+            video.src = '';
+            
+            updateStatus('已清除所有頻道');
+        }
+        
+        // Initialize
+        updateStatus('Debug模式已啟動 - 點擊載入黃金直播源開始');
+    </script>
+</body>
+</html>

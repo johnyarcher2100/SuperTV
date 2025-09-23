@@ -1,0 +1,29 @@
+{
+  "name": "supertv-player",
+  "version": "1.0.0",
+  "description": "多格式直播播放器 - 支援 HLS 和多種視頻格式",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 3000",
+    "build": "vite build",
+    "preview": "vite preview",
+    "serve": "python3 server.py",
+    "start": "npm run dev"
+  },
+  "keywords": [
+    "video-player",
+    "hls",
+    "live-streaming",
+    "taiwan-tv",
+    "web-player"
+  ],
+  "author": "SuperTV Team",
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "hls.js": "^1.4.12",
+    "video.js": "^8.5.2"
+  }
+}
