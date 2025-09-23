@@ -511,23 +511,23 @@ class IPTVPlayer {
                 }
             }
 
-            // 檢查是否為有 CORS 問題的串流 (220.134.196.147)
+            // 檢查是否為有 CORS/混合內容問題的串流 (220.134.196.147:任何埠)
             if (url.includes('220.134.196.147')) {
-                console.log('IPTV Player: Detected potentially CORS-blocked stream, trying proxy...');
+                console.log('IPTV Player: Detected potentially CORS/mixed-content stream, rewriting to proxy...');
                 try {
-                    // 嘗試使用代理
-                    const proxyUrl = url.replace('http://220.134.196.147:8567', '/api/proxy');
+                    // 將 http://220.134.196.147:<port>/xxx 統一改寫為 /api/proxy/<port>/xxx
+                    const proxyUrl = url.replace(/^http:\/\/220\.134\.196\.147(?::\d+)?/i, '/api/proxy');
                     const response = await fetch(proxyUrl, {
                         method: 'HEAD',
                         redirect: 'follow'
                     });
 
-                    if (response.ok) {
-                        console.log('IPTV Player: Proxy works, using proxy URL');
+                    if (response.ok || response.type === 'opaque') {
+                        console.log('IPTV Player: Proxy reachable, using proxy URL');
                         return proxyUrl;
                     }
                 } catch (proxyError) {
-                    console.warn('IPTV Player: Proxy failed for 220.134.196.147:', proxyError);
+                    console.warn('IPTV Player: Proxy check failed for 220.134.196.147:', proxyError);
                 }
             }
 
