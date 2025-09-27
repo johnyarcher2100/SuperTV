@@ -1,6 +1,7 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  functions = "netlify/functions"
 
 # 本地開發（可選）
 [dev]
@@ -38,10 +39,9 @@
   status = 200
   force = true
 
-# /api/proxy/* -> http://220.134.196.147:8567/:splat
+# Functions proxy
 [[redirects]]
-  from = "/api/proxy/*"
-  to = "http://220.134.196.147:8567/:splat"
+  from = "/api/proxy"
+  to = "/.netlify/functions/proxy"
   status = 200
   force = true
-  headers = { Access-Control-Allow-Origin = "*" }

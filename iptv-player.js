@@ -159,9 +159,9 @@ class IPTVPlayer {
     rewriteUrlForHttps(url) {
         try {
             if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && /^http:\/\//i.test(url)) {
-                if (/^http:\/\/220\.134\.196\.147(?::\d+)?/i.test(url)) {
-                    return url.replace(/^http:\/\/220\.134\.196\.147(?::\d+)?/i, '/api/proxy');
-                }
+                // 統一使用 Functions 代理，避免各種混合內容/CORS
+                const encoded = encodeURIComponent(url);
+                return `/api/proxy?url=${encoded}`;
             }
         } catch (_) {}
         return url;
