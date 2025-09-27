@@ -1,0 +1,1 @@
+import './iptv-player.js';
