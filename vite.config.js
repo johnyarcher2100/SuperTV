@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import { resolve } from 'path'
 
 export default defineConfig({
   // 開發服務器配置
@@ -44,6 +45,10 @@ export default defineConfig({
     sourcemap: true,
     minify: 'esbuild',
     rollupOptions: {
+      input: {
+        index: resolve(__dirname, 'index.html'),
+        player: resolve(__dirname, 'player.html')
+      },
       output: {
         manualChunks: {
           'video-libs': ['hls.js']
