@@ -155,6 +155,18 @@ class IPTVPlayer {
         return canPlayHLS && (isSafari || isIOS);
     }
 
+    // 在 HTTPS 環境將不安全的 http 串流改寫為同源代理，避免混合內容
+    rewriteUrlForHttps(url) {
+        try {
+            if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && /^http:\/\//i.test(url)) {
+                if (/^http:\/\/220\.134\.196\.147(?::\d+)?/i.test(url)) {
+                    return url.replace(/^http:\/\/220\.134\.196\.147(?::\d+)?/i, '/api/proxy');
+                }
+            }
+        } catch (_) {}
+        return url;
+    }
+
     async loadNativeHLS(url) {
         return new Promise((resolve, reject) => {
             let timeoutId;
@@ -387,8 +399,9 @@ class IPTVPlayer {
             });
 
             // 載入流
+            const sourceUrl = this.rewriteUrlForHttps(url);
             this.hls.attachMedia(this.video);
-            this.hls.loadSource(url);
+            this.hls.loadSource(sourceUrl);
         });
     }
 
@@ -465,7 +478,8 @@ class IPTVPlayer {
 
         // 清除現有內容並設置新源
         this.video.innerHTML = '';
-        this.video.src = url;
+        const sourceUrl = this.rewriteUrlForHttps(url);
+        this.video.src = sourceUrl;
         this.video.load();
     }
 
