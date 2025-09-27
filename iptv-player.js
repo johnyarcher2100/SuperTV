@@ -237,6 +237,8 @@ class IPTVPlayer {
                 this.hls = null;
             }
 
+            // 先保留 this 供回呼使用
+            const self = this;
             // 創建新的 HLS 實例，優化設置以減少卡頓
             this.hls = new Hls({
                 debug: false,
@@ -283,18 +285,25 @@ class IPTVPlayer {
                 abrEwmaSlowLive: 8.0,           // 慢速直播 EWMA
                 abrEwmaDefaultEstimate: 1000000, // 預設頻寬估計提高到 1Mbps
 
-                // 🌐 網路設置 - 簡化 CORS 處理
+                // 🌐 網路設置 - 透過 Functions 代理避免混合內容/CORS
                 xhrSetup: function(xhr, url) {
-                    // 只設置基本的 CORS 設置
                     xhr.withCredentials = false;
                 },
 
                 fetchSetup: function(context, initParams) {
-                    // 簡化 fetch 設置
-                    return new Request(context.url, {
+                    const proxiedUrl = self.rewriteUrlForHttps(context.url);
+                    const headers = new Headers(initParams?.headers || {});
+                    // 盡量攜帶 Range 與 UA 以提升相容性
+                    if (context.rangeStart) {
+                        headers.set('Range', `bytes=${context.rangeStart}-${context.rangeEnd || ''}`);
+                    }
+                    headers.set('User-Agent', headers.get('User-Agent') || 'Mozilla/5.0');
+                    return new Request(proxiedUrl, {
                         ...initParams,
+                        headers,
                         mode: 'cors',
-                        credentials: 'omit'
+                        credentials: 'omit',
+                        redirect: 'follow'
                     });
                 },
 

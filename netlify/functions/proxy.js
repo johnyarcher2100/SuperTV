@@ -23,7 +23,12 @@ export async function handler(event) {
 
     const upstream = await fetch(url, {
       method: event.httpMethod === 'HEAD' ? 'HEAD' : 'GET',
-      redirect: 'follow'
+      redirect: 'follow',
+      // 攜帶常見 UA 以及 Range
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+        ...(event.headers?.range ? { Range: event.headers.range } : {})
+      }
     });
 
     const headers = Object.fromEntries(upstream.headers.entries());
