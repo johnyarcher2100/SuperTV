@@ -74,6 +74,60 @@ export async function handler(event) {
       const arrayBuffer = await upstream.arrayBuffer();
       console.log('Proxy: Response size:', arrayBuffer.byteLength, 'bytes');
 
+      // 檢查是否為 m3u8 文件（需要重寫 URL）
+      const contentType = headers['content-type'] || '';
+      const isM3U8 = url.includes('.m3u8') ||
+                     contentType.includes('mpegurl') ||
+                     contentType.includes('m3u8');
+
+      if (isM3U8) {
+        console.log('Proxy: Detected m3u8 file, rewriting URLs...');
+
+        // 將響應轉為文本
+        const text = Buffer.from(arrayBuffer).toString('utf-8');
+
+        // 提取基礎 URL（用於相對路徑）
+        const urlObj = new URL(url);
+        const baseUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf('/') + 1)}`;
+
+        // 重寫 m3u8 中的所有 URL
+        const rewrittenText = text.split('\n').map(line => {
+          // 跳過註釋和空行
+          if (line.startsWith('#') || line.trim() === '') {
+            return line;
+          }
+
+          // 檢查是否為 URL 行
+          if (line.trim().length > 0) {
+            let targetUrl = line.trim();
+
+            // 處理相對路徑
+            if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+              targetUrl = baseUrl + targetUrl;
+            }
+
+            // 重寫為代理 URL
+            const proxiedUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+            console.log('Proxy: Rewriting', targetUrl, '->', proxiedUrl);
+            return proxiedUrl;
+          }
+
+          return line;
+        }).join('\n');
+
+        // 更新 Content-Length
+        const rewrittenBuffer = Buffer.from(rewrittenText, 'utf-8');
+        headers['content-length'] = rewrittenBuffer.byteLength.toString();
+
+        return {
+          statusCode: upstream.status,
+          headers,
+          body: rewrittenBuffer.toString('base64'),
+          isBase64Encoded: true
+        };
+      }
+
+      // 非 m3u8 文件，直接返回
       return {
         statusCode: upstream.status,
         headers,

@@ -57,7 +57,7 @@ class IPTVPlayer {
 
     async tryMultipleLoadMethods(url) {
         const methods = [
-            // 方法 1: 智能檢測 (HLS.js 優先)
+            // 方法 1: 智能檢測 (優先使用最適合的播放器)
             async () => {
                 if (this.isHLSStream(url)) {
                     return await this.loadHLSStream(url);
@@ -65,7 +65,12 @@ class IPTVPlayer {
                     return await this.loadNativeStream(url);
                 }
             },
-            // 方法 2: 強制使用 HLS.js (如果可用)
+            // 方法 2: 強制使用原生播放器 (iOS Safari 等)
+            async () => {
+                console.log('IPTV Player: Forcing native player');
+                return await this.loadNativeStream(url);
+            },
+            // 方法 3: 強制使用 HLS.js (如果可用，桌面瀏覽器)
             async () => {
                 if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                     console.log('IPTV Player: Forcing HLS.js for problematic stream');
@@ -73,18 +78,10 @@ class IPTVPlayer {
                 }
                 throw new Error('HLS.js not available');
             },
-            // 方法 3: 強制使用原生播放器
+            // 方法 4: 最後嘗試 - 使用原生播放器作為後備
             async () => {
-                console.log('IPTV Player: Forcing native player');
+                console.log('IPTV Player: Final fallback - using native player');
                 return await this.loadNativeStream(url);
-            },
-            // 方法 4: 嘗試作為 HLS 流處理 (即使 URL 不明顯)
-            async () => {
-                if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-                    console.log('IPTV Player: Treating as HLS stream regardless of URL');
-                    return await this.loadWithHLSJS(url);
-                }
-                throw new Error('HLS.js not available for fallback');
             }
         ];
 
@@ -238,10 +235,14 @@ class IPTVPlayer {
             this.video.addEventListener('loadeddata', onLoadedData);
             this.video.addEventListener('error', onError);
 
+            // 在 HTTPS 環境下重寫 URL
+            const sourceUrl = this.rewriteUrlForHttps(url);
+            console.log('IPTV Player: Loading native HLS with URL:', sourceUrl);
+
             // 設置 source 元素
             this.video.innerHTML = '';
             const source = document.createElement('source');
-            source.src = url;
+            source.src = sourceUrl;
             source.type = 'application/x-mpegURL';
             this.video.appendChild(source);
 
