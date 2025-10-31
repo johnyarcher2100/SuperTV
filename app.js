@@ -7,6 +7,10 @@ class SuperTVApp {
         this.currentChannelId = null;
         this.isChannelPanelCollapsed = false;
 
+        // 🎬 全螢幕播放器相關
+        this.fullscreenPlayer = null;
+        this.currentPlayingChannel = null;
+
         this.init();
 
         // 🔄 檢查是否需要恢復頻道列表狀態
@@ -40,6 +44,15 @@ class SuperTVApp {
 
         // Settings
         this.setupSettingsModal();
+
+        // Reset button - 回首頁
+        const resetBtn = document.getElementById('reset-btn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                console.log('Reset button clicked - returning to welcome page');
+                this.resetToWelcomePage();
+            });
+        }
 
         // Retry button
         document.getElementById('retry-btn').addEventListener('click', () => {
@@ -88,6 +101,150 @@ class SuperTVApp {
                 this.fixVideoDisplay();
             });
         }
+
+        // 🎬 全螢幕播放器事件監聽器
+        this.setupFullscreenPlayerListeners();
+    }
+
+    // 🎬 新增：設置全螢幕播放器事件監聽器
+    setupFullscreenPlayerListeners() {
+        // 返回按鈕
+        const backBtn = document.getElementById('back-to-list-btn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                this.hideFullscreenPlayer();
+            });
+        }
+
+        // ESC 鍵返回
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.body.classList.contains('player-mode')) {
+                this.hideFullscreenPlayer();
+            }
+        });
+
+        // 全螢幕播放器重試按鈕
+        const fullscreenRetryBtn = document.getElementById('fullscreen-retry-btn');
+        if (fullscreenRetryBtn) {
+            fullscreenRetryBtn.addEventListener('click', () => {
+                if (this.currentPlayingChannel) {
+                    this.showFullscreenPlayer(this.currentPlayingChannel);
+                }
+            });
+        }
+
+        // 🎨 Sidebar 控制
+        this.setupSidebarControls();
+    }
+
+    // 🎨 新增：設置 Sidebar 控制
+    setupSidebarControls() {
+        const sidebar = document.getElementById('channel-sidebar');
+        const toggleBtn = document.getElementById('sidebar-toggle-btn');
+        const closeBtn = document.getElementById('sidebar-close-btn');
+        const searchInput = document.getElementById('sidebar-search-input');
+        const opacitySlider = document.getElementById('sidebar-opacity-slider');
+        const opacityValue = document.getElementById('sidebar-opacity-value');
+
+        // 自動隱藏計時器
+        let autoHideTimer = null;
+
+        // 重置自動隱藏計時器
+        const resetAutoHideTimer = () => {
+            if (autoHideTimer) {
+                clearTimeout(autoHideTimer);
+            }
+            autoHideTimer = setTimeout(() => {
+                this.closeSidebar();
+            }, 10000); // 10秒後自動關閉
+        };
+
+        // 開啟 Sidebar
+        this.openSidebar = () => {
+            sidebar.classList.add('open');
+            toggleBtn.classList.add('hidden');
+            resetAutoHideTimer();
+        };
+
+        // 關閉 Sidebar
+        this.closeSidebar = () => {
+            sidebar.classList.remove('open');
+            toggleBtn.classList.remove('hidden');
+            if (autoHideTimer) {
+                clearTimeout(autoHideTimer);
+            }
+        };
+
+        // 切換按鈕
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                this.openSidebar();
+            });
+        }
+
+        // 關閉按鈕
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.closeSidebar();
+            });
+        }
+
+        // Sidebar 內的任何互動都重置計時器
+        if (sidebar) {
+            sidebar.addEventListener('mouseenter', () => {
+                resetAutoHideTimer();
+            });
+
+            sidebar.addEventListener('mousemove', () => {
+                resetAutoHideTimer();
+            });
+
+            sidebar.addEventListener('click', () => {
+                resetAutoHideTimer();
+            });
+        }
+
+        // 搜尋功能
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const searchQuery = e.target.value;
+                const activeCategory = document.querySelector('.sidebar-categories .sidebar-category-btn.active');
+                const category = activeCategory ? activeCategory.dataset.category : 'all';
+
+                if (this.currentPlayingChannel) {
+                    this.renderSidebarChannels(this.currentPlayingChannel.id, category, searchQuery);
+                }
+                resetAutoHideTimer();
+            });
+        }
+
+        // 分類篩選
+        const categoryBtns = document.querySelectorAll('.sidebar-category-btn');
+        categoryBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // 更新按鈕狀態
+                categoryBtns.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+
+                const category = e.target.dataset.category;
+                const searchQuery = searchInput ? searchInput.value : '';
+
+                if (this.currentPlayingChannel) {
+                    this.renderSidebarChannels(this.currentPlayingChannel.id, category, searchQuery);
+                }
+                resetAutoHideTimer();
+            });
+        });
+
+        // 透明度控制
+        if (opacitySlider && opacityValue) {
+            opacitySlider.addEventListener('input', (e) => {
+                const opacity = e.target.value / 100;
+                sidebar.style.background = `rgba(20, 20, 20, ${opacity})`;
+                opacityValue.textContent = `${e.target.value}%`;
+                resetAutoHideTimer();
+            });
+        }
     }
 
     setupSourceSelection() {
@@ -125,6 +282,60 @@ class SuperTVApp {
             });
         } else {
             console.error('秒開直播源 button not found');
+        }
+
+        // Judy 直播源 button
+        const judyBtn = document.getElementById('load-judy-source');
+        if (judyBtn) {
+            judyBtn.addEventListener('click', () => {
+                console.log('Judy 直播源 button clicked');
+                this.loadJudySource();
+            });
+        }
+
+        // 垃圾直播源 button
+        const lajiBtn = document.getElementById('load-laji-source');
+        if (lajiBtn) {
+            lajiBtn.addEventListener('click', () => {
+                console.log('垃圾直播源 button clicked');
+                this.loadLajiSource();
+            });
+        }
+
+        // 祕密直播源 button
+        const mimiBtn = document.getElementById('load-mimi-source');
+        if (mimiBtn) {
+            mimiBtn.addEventListener('click', () => {
+                console.log('祕密直播源 button clicked');
+                this.loadMimiSource();
+            });
+        }
+
+        // Gather 直播源 button
+        const gatherBtn = document.getElementById('load-gather-source');
+        if (gatherBtn) {
+            gatherBtn.addEventListener('click', () => {
+                console.log('Gather 直播源 button clicked');
+                this.loadGatherSource();
+            });
+        }
+
+        // 極品直播源 button
+        const jipinBtn = document.getElementById('load-jipin-source');
+        if (jipinBtn) {
+            jipinBtn.addEventListener('click', () => {
+                console.log('極品直播源 button clicked');
+                this.loadJipinSource();
+            });
+        }
+
+        // 元寶直播源 button
+        const yuanbaoBtn = document.getElementById('load-yuanbao-source');
+        if (yuanbaoBtn) {
+            yuanbaoBtn.addEventListener('click', () => {
+                console.log('元寶直播源 button clicked');
+                this.loadYuanbaoSource();
+            });
         }
 
         // Custom playlist button
@@ -443,6 +654,174 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         }
     }
 
+    async loadJudySource() {
+        try {
+            this.showLoading('載入 Judy 直播源...');
+            let playlistText;
+
+            try {
+                const response = await fetch('/api/judy');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                playlistText = await response.text();
+            } catch (proxyError) {
+                console.log('Proxy failed, trying direct connection:', proxyError);
+                const response = await fetch('https://files.catbox.moe/25aoli.txt');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                playlistText = await response.text();
+            }
+
+            this.processPlaylistText(playlistText, 'Judy 直播源');
+        } catch (error) {
+            console.error('Failed to load Judy 直播源:', error);
+            this.hideLoading();
+            this.showError(`載入 Judy 直播源失敗: ${error.message}`);
+        }
+    }
+
+    async loadLajiSource() {
+        try {
+            this.showLoading('載入垃圾直播源...');
+            let playlistText;
+
+            try {
+                const response = await fetch('/api/laji');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                playlistText = await response.text();
+            } catch (proxyError) {
+                console.log('Proxy failed, trying direct connection:', proxyError);
+                const response = await fetch('https://files.catbox.moe/1mj29e.m3u');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                playlistText = await response.text();
+            }
+
+            this.processPlaylistText(playlistText, '垃圾直播源');
+        } catch (error) {
+            console.error('Failed to load 垃圾直播源:', error);
+            this.hideLoading();
+            this.showError(`載入垃圾直播源失敗: ${error.message}`);
+        }
+    }
+
+    async loadMimiSource() {
+        try {
+            this.showLoading('載入祕密直播源...');
+            let playlistText;
+
+            try {
+                const response = await fetch('/api/mimi');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                playlistText = await response.text();
+            } catch (proxyError) {
+                console.log('Proxy failed, trying direct connection:', proxyError);
+                const response = await fetch('https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/result.m3u');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                playlistText = await response.text();
+            }
+
+            this.processPlaylistText(playlistText, '祕密直播源');
+        } catch (error) {
+            console.error('Failed to load 祕密直播源:', error);
+            this.hideLoading();
+            this.showError(`載入祕密直播源失敗: ${error.message}`);
+        }
+    }
+
+    async loadGatherSource() {
+        try {
+            this.showLoading('載入 Gather 直播源...');
+            let playlistText;
+
+            try {
+                const response = await fetch('/api/gather');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                playlistText = await response.text();
+            } catch (proxyError) {
+                console.log('Proxy failed, trying direct connection:', proxyError);
+                const response = await fetch('https://tv.iill.top/m3u/Gather');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                playlistText = await response.text();
+            }
+
+            this.processPlaylistText(playlistText, 'Gather 直播源');
+        } catch (error) {
+            console.error('Failed to load Gather 直播源:', error);
+            this.hideLoading();
+            this.showError(`載入 Gather 直播源失敗: ${error.message}`);
+        }
+    }
+
+    async loadJipinSource() {
+        try {
+            this.showLoading('載入極品直播源...');
+            let playlistText;
+
+            try {
+                const response = await fetch('/api/jipin');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                playlistText = await response.text();
+            } catch (proxyError) {
+                console.log('Proxy failed, trying direct connection:', proxyError);
+                const response = await fetch('https://files.catbox.moe/id0n84.txt');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                playlistText = await response.text();
+            }
+
+            this.processPlaylistText(playlistText, '極品直播源');
+        } catch (error) {
+            console.error('Failed to load 極品直播源:', error);
+            this.hideLoading();
+            this.showError(`載入極品直播源失敗: ${error.message}`);
+        }
+    }
+
+    async loadYuanbaoSource() {
+        try {
+            this.showLoading('載入元寶直播源...');
+            let playlistText;
+
+            try {
+                const response = await fetch('/api/yuanbao');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                playlistText = await response.text();
+            } catch (proxyError) {
+                console.log('Proxy failed, trying direct connection:', proxyError);
+                const response = await fetch('https://chuxinya.top/f/DRGJH3/绿影流年.txt');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                playlistText = await response.text();
+            }
+
+            this.processPlaylistText(playlistText, '元寶直播源');
+        } catch (error) {
+            console.error('Failed to load 元寶直播源:', error);
+            this.hideLoading();
+            this.showError(`載入元寶直播源失敗: ${error.message}`);
+        }
+    }
+
     processPlaylistText(playlistText, sourceName = '黃金直播源') {
         console.log('Processing playlist text:', playlistText.substring(0, 200) + '...');
 
@@ -511,24 +890,223 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
             return;
         }
 
-        console.log('Opening channel in new player page:', channel);
+        console.log('🎬 Opening channel in fullscreen player view:', channel);
 
-        // 跳轉到新的播放頁面
-        this.openPlayerPage(channel);
+        // 使用全螢幕播放視圖（新方法）
+        this.showFullscreenPlayer(channel);
     }
 
-    openPlayerPage(channel) {
-        // 將頻道數據編碼為 URL 參數
-        const channelData = encodeURIComponent(JSON.stringify({
-            id: channel.id,
-            name: channel.name,
-            url: channel.url,
-            category: channel.category
-        }));
+    // 🎬 新增：顯示全螢幕播放器
+    showFullscreenPlayer(channel) {
+        console.log('📺 Showing fullscreen player for:', channel.name);
 
-        // 跳轉到播放頁面（避免被彈窗阻擋）
-        const playerUrl = `player.html?channel=${channelData}`;
-        window.location.assign(playerUrl);
+        // 顯示全螢幕播放視圖
+        const playerView = document.getElementById('fullscreen-player-view');
+        playerView.classList.remove('hidden');
+
+        // 添加 body class 以隱藏主內容
+        document.body.classList.add('player-mode');
+
+        // 更新頻道名稱
+        document.getElementById('playing-channel-name').textContent = channel.name;
+
+        // 顯示載入指示器
+        const loadingIndicator = document.getElementById('fullscreen-loading');
+        const errorMessage = document.getElementById('fullscreen-error');
+        loadingIndicator.classList.remove('hidden');
+        errorMessage.classList.add('hidden');
+
+        // 載入視頻
+        const video = document.getElementById('fullscreen-video');
+
+        // 創建新的 IPTV 播放器實例（如果還沒有）
+        if (!this.fullscreenPlayer) {
+            this.fullscreenPlayer = new IPTVPlayer(video);
+        }
+
+        // 載入串流
+        this.fullscreenPlayer.loadStream(channel.url)
+            .then(() => {
+                console.log('✅ Channel loaded successfully in fullscreen player');
+                loadingIndicator.classList.add('hidden');
+            })
+            .catch(error => {
+                console.error('❌ Failed to load channel in fullscreen player:', error);
+                loadingIndicator.classList.add('hidden');
+                errorMessage.classList.remove('hidden');
+                document.getElementById('fullscreen-error-text').textContent =
+                    `無法播放此頻道: ${error.message}`;
+            });
+
+        // 渲染 Sidebar 頻道列表
+        this.renderSidebarChannels(channel.id);
+
+        // 保存當前播放頻道
+        this.currentPlayingChannel = channel;
+        this.currentChannelId = channel.id;
+
+        // 滾動到頂部
+        playerView.scrollTop = 0;
+    }
+
+    // 🎬 新增：隱藏全螢幕播放器
+    hideFullscreenPlayer() {
+        console.log('🔙 Hiding fullscreen player');
+
+        // 隱藏全螢幕播放視圖
+        const playerView = document.getElementById('fullscreen-player-view');
+        playerView.classList.add('hidden');
+
+        // 移除 body class
+        document.body.classList.remove('player-mode');
+
+        // 停止播放
+        if (this.fullscreenPlayer) {
+            const video = document.getElementById('fullscreen-video');
+            video.pause();
+            video.src = '';
+
+            // 銷毀 HLS 實例
+            if (this.fullscreenPlayer.hls) {
+                this.fullscreenPlayer.hls.destroy();
+                this.fullscreenPlayer.hls = null;
+            }
+        }
+
+        this.currentPlayingChannel = null;
+    }
+
+    // 🎨 新增：渲染 Sidebar 頻道列表
+    renderSidebarChannels(currentChannelId, filterCategory = 'all', searchQuery = '') {
+        const list = document.getElementById('sidebar-channels-list');
+        const countElement = document.getElementById('sidebar-channel-count');
+
+        if (!list) return;
+
+        let channels = this.channelManager.getChannels().filter(ch => ch.id !== currentChannelId);
+
+        // 分類篩選
+        if (filterCategory && filterCategory !== 'all') {
+            channels = channels.filter(ch => ch.category === filterCategory);
+        }
+
+        // 搜尋篩選
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            channels = channels.filter(ch =>
+                ch.name.toLowerCase().includes(query)
+            );
+        }
+
+        // 更新頻道計數
+        if (countElement) {
+            countElement.textContent = `${channels.length} 個頻道`;
+        }
+
+        list.innerHTML = '';
+
+        if (channels.length === 0) {
+            list.innerHTML = '<div style="text-align: center; color: #888; padding: 40px 20px;">沒有找到符合的頻道</div>';
+            return;
+        }
+
+        channels.forEach(channel => {
+            const item = document.createElement('div');
+            item.className = 'sidebar-channel-item';
+            item.dataset.channelId = channel.id;
+
+            const categoryText = this.getCategoryText(channel.category);
+
+            item.innerHTML = `
+                <div class="channel-name">${channel.name}</div>
+                <div class="channel-category">${categoryText}</div>
+            `;
+
+            item.addEventListener('click', () => {
+                // 切換頻道
+                this.showFullscreenPlayer(channel);
+                // 自動關閉 sidebar
+                setTimeout(() => {
+                    this.closeSidebar();
+                }, 300);
+            });
+
+            list.appendChild(item);
+        });
+    }
+
+    // 🎬 新增：渲染其他頻道列表（保留舊版本以防萬一）
+    renderOtherChannels(currentChannelId, filterCategory = 'all', searchQuery = '') {
+        const grid = document.getElementById('other-channels-grid');
+        if (!grid) return;
+
+        let channels = this.channelManager.getChannels().filter(ch => ch.id !== currentChannelId);
+
+        // 分類篩選
+        if (filterCategory && filterCategory !== 'all') {
+            channels = channels.filter(ch => ch.category === filterCategory);
+        }
+
+        // 搜尋篩選
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            channels = channels.filter(ch =>
+                ch.name.toLowerCase().includes(query)
+            );
+        }
+
+        // 更新頻道計數
+        const countElement = document.getElementById('other-channels-count');
+        if (countElement) {
+            countElement.textContent = `${channels.length} 個頻道`;
+        }
+
+        grid.innerHTML = '';
+
+        if (channels.length === 0) {
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; padding: 40px;">沒有找到符合的頻道</div>';
+            return;
+        }
+
+        channels.forEach(channel => {
+            const item = document.createElement('div');
+            item.className = 'channel-item';
+            item.dataset.channelId = channel.id;
+
+            const categoryText = this.getCategoryText(channel.category);
+
+            item.innerHTML = `
+                <div class="channel-name">${channel.name}</div>
+                <div class="channel-category">${categoryText}</div>
+            `;
+
+            item.addEventListener('click', () => {
+                this.showFullscreenPlayer(channel);
+            });
+
+            grid.appendChild(item);
+        });
+    }
+
+    // 🎬 新增：獲取分類文字
+    getCategoryText(category) {
+        const categoryMap = {
+            'news': '📰 新聞',
+            'entertainment': '🎭 綜藝',
+            'drama': '📺 戲劇',
+            'movie': '🎬 電影',
+            'sports': '⚽ 體育',
+            'kids': '👶 兒童',
+            'international': '🌍 國際',
+            'general': '📡 一般'
+        };
+        return categoryMap[category] || '📡 一般';
+    }
+
+    // 保留舊方法以防其他地方使用（標記為已棄用）
+    openPlayerPage(channel) {
+        console.warn('⚠️ openPlayerPage is deprecated, use showFullscreenPlayer instead');
+        this.showFullscreenPlayer(channel);
     }
 
     updateChannelSelection(channelId) {
@@ -691,11 +1269,56 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         }
     }
 
+    showWelcomeOverlay() {
+        const overlay = document.getElementById('welcome-overlay');
+        if (overlay) {
+            overlay.classList.remove('hidden');
+            console.log('Welcome overlay shown - user can select source');
+        }
+    }
+
     showChannelPanel() {
         const panel = document.getElementById('channel-panel');
         if (panel) {
             panel.classList.remove('hidden');
         }
+    }
+
+    hideChannelPanel() {
+        const panel = document.getElementById('channel-panel');
+        if (panel) {
+            panel.classList.add('hidden');
+        }
+    }
+
+    resetToWelcomePage() {
+        console.log('Resetting to welcome page...');
+
+        // 停止當前播放
+        if (this.player) {
+            this.player.stop();
+        }
+
+        // 隱藏頻道面板
+        this.hideChannelPanel();
+
+        // 顯示歡迎頁面
+        this.showWelcomeOverlay();
+
+        // 清除當前頻道
+        this.currentChannelId = null;
+
+        // 更新標題
+        const channelElement = document.getElementById('current-channel');
+        const statusElement = document.getElementById('player-status');
+        if (channelElement) {
+            channelElement.textContent = '🎯 請選擇直播源';
+        }
+        if (statusElement) {
+            statusElement.textContent = '多種直播源可選';
+        }
+
+        console.log('Returned to welcome page - ready to select new source');
     }
 
     showLoading(message = '載入中...') {

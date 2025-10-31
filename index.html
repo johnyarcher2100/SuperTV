@@ -26,82 +26,128 @@
 <body>
     <div class="container">
         <header class="header">
-            <h1>SuperTV 直播播放器</h1>
-            <div class="player-info">
-                <span id="current-channel">🎯 黃金直播源 - 請選擇頻道開始播放</span>
-                <span id="player-status">70+ 頻道就緒</span>
-                <button id="reset-btn" class="toggle-btn">回首頁</button>
+            <div class="header-content">
+                <h1>SuperTV 直播播放器</h1>
+                <button id="reset-btn" class="reset-btn">回首頁</button>
             </div>
         </header>
+
+        <!-- Welcome overlay - 獨立於 main-content 之外 -->
+        <div id="welcome-overlay" class="welcome-overlay">
+            <div class="welcome-content">
+                <div class="logo-section">
+                    <h1>🎯 SuperTV</h1>
+                    <p class="subtitle">多格式直播播放器</p>
+                </div>
+
+                <div class="source-section">
+                    <h2>📡 直播源選擇</h2>
+                    <div class="source-options">
+                        <button id="load-golden-source" class="source-btn primary">
+                            <div class="btn-icon">🏆</div>
+                            <div class="btn-content">
+                                <h3>黃金直播源</h3>
+                                <p>70+ 台灣電視頻道</p>
+                            </div>
+                        </button>
+
+                        <button id="load-xiaofeng-source" class="source-btn">
+                            <div class="btn-icon">🌟</div>
+                            <div class="btn-content">
+                                <h3>曉峰直播源</h3>
+                                <p>高品質直播頻道</p>
+                            </div>
+                        </button>
+
+                        <button id="load-miaokai-source" class="source-btn">
+                            <div class="btn-icon">⚡</div>
+                            <div class="btn-content">
+                                <h3>秒開直播源</h3>
+                                <p>快速載入頻道</p>
+                            </div>
+                        </button>
+
+                        <button id="load-judy-source" class="source-btn">
+                            <div class="btn-icon">💎</div>
+                            <div class="btn-content">
+                                <h3>Judy 直播源</h3>
+                                <p>精選頻道列表</p>
+                            </div>
+                        </button>
+
+                        <button id="load-laji-source" class="source-btn">
+                            <div class="btn-icon">🗑️</div>
+                            <div class="btn-content">
+                                <h3>垃圾直播源</h3>
+                                <p>多樣化頻道</p>
+                            </div>
+                        </button>
+
+                        <button id="load-mimi-source" class="source-btn">
+                            <div class="btn-icon">🔐</div>
+                            <div class="btn-content">
+                                <h3>祕密直播源</h3>
+                                <p>IPTV API 頻道</p>
+                            </div>
+                        </button>
+
+                        <button id="load-gather-source" class="source-btn">
+                            <div class="btn-icon">🌐</div>
+                            <div class="btn-content">
+                                <h3>Gather 直播源</h3>
+                                <p>聚合頻道集合</p>
+                            </div>
+                        </button>
+
+                        <button id="load-jipin-source" class="source-btn">
+                            <div class="btn-icon">⭐</div>
+                            <div class="btn-content">
+                                <h3>極品直播源</h3>
+                                <p>高品質頻道</p>
+                            </div>
+                        </button>
+
+                        <button id="load-yuanbao-source" class="source-btn">
+                            <div class="btn-icon">💰</div>
+                            <div class="btn-content">
+                                <h3>元寶直播源</h3>
+                                <p>綠影流年頻道</p>
+                            </div>
+                        </button>
+
+                        <button id="load-custom-playlist" class="source-btn">
+                            <div class="btn-icon">📋</div>
+                            <div class="btn-content">
+                                <h3>自訂播放清單</h3>
+                                <p>M3U/M3U8 檔案</p>
+                            </div>
+                        </button>
+
+                        <button id="load-direct-url" class="source-btn">
+                            <div class="btn-icon">🔗</div>
+                            <div class="btn-content">
+                                <h3>直接網址</h3>
+                                <p>單一串流網址</p>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="format-hints">
+                        <h3>📺 支援格式</h3>
+                        <ul>
+                            <li>HLS (.m3u8) - 直播串流</li>
+                            <li>M3U/M3U8 - 播放清單</li>
+                            <li>MP4/WebM - 一般影片</li>
+                            <li>RTMP/HTTP - 串流協議</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <main class="main-content">
             <!-- Video Player Container -->
             <div class="video-container">
-                <!-- Welcome overlay (移到視頻元素之前) -->
-                <div id="welcome-overlay" class="welcome-overlay">
-                    <div class="welcome-content">
-                        <div class="logo-section">
-                            <h1>🎯 SuperTV</h1>
-                            <p class="subtitle">多格式直播播放器</p>
-                        </div>
-
-                        <div class="source-section">
-                            <h2>📡 直播源選擇</h2>
-                            <div class="source-options">
-                                <button id="load-golden-source" class="source-btn primary">
-                                    <div class="btn-icon">🏆</div>
-                                    <div class="btn-content">
-                                        <h3>黃金直播源</h3>
-                                        <p>70+ 台灣電視頻道</p>
-                                    </div>
-                                </button>
-
-                                <button id="load-xiaofeng-source" class="source-btn">
-                                    <div class="btn-icon">🌟</div>
-                                    <div class="btn-content">
-                                        <h3>曉峰直播源</h3>
-                                        <p>高品質直播頻道</p>
-                                    </div>
-                                </button>
-
-                                <button id="load-miaokai-source" class="source-btn">
-                                    <div class="btn-icon">⚡</div>
-                                    <div class="btn-content">
-                                        <h3>秒開直播源</h3>
-                                        <p>快速載入頻道</p>
-                                    </div>
-                                </button>
-
-                                <button id="load-custom-playlist" class="source-btn">
-                                    <div class="btn-icon">📋</div>
-                                    <div class="btn-content">
-                                        <h3>自訂播放清單</h3>
-                                        <p>M3U/M3U8 檔案</p>
-                                    </div>
-                                </button>
-
-                                <button id="load-direct-url" class="source-btn">
-                                    <div class="btn-icon">🔗</div>
-                                    <div class="btn-content">
-                                        <h3>直接網址</h3>
-                                        <p>單一串流網址</p>
-                                    </div>
-                                </button>
-                            </div>
-
-                            <div class="format-hints">
-                                <h3>📺 支援格式</h3>
-                                <ul>
-                                    <li>HLS (.m3u8) - 直播串流</li>
-                                    <li>M3U/M3U8 - 播放清單</li>
-                                    <li>MP4/WebM - 一般影片</li>
-                                    <li>RTMP/HTTP - 串流協議</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <video
                     id="video-player"
                     controls
@@ -163,15 +209,15 @@
                     </div>
                 </div>
                 
-                <div class="channel-categories">
+                <div class="category-filter">
                     <button class="category-btn active" data-category="all">全部</button>
-                    <button class="category-btn" data-category="news">新聞</button>
-                    <button class="category-btn" data-category="entertainment">綜藝</button>
-                    <button class="category-btn" data-category="drama">戲劇</button>
-                    <button class="category-btn" data-category="movie">電影</button>
-                    <button class="category-btn" data-category="sports">體育</button>
-                    <button class="category-btn" data-category="kids">兒童</button>
-                    <button class="category-btn" data-category="international">國際</button>
+                    <button class="category-btn" data-category="news">📰 新聞</button>
+                    <button class="category-btn" data-category="entertainment">🎭 綜藝</button>
+                    <button class="category-btn" data-category="drama">📺 戲劇</button>
+                    <button class="category-btn" data-category="movie">🎬 電影</button>
+                    <button class="category-btn" data-category="sports">⚽ 體育</button>
+                    <button class="category-btn" data-category="kids">👶 兒童</button>
+                    <button class="category-btn" data-category="international">🌍 國際</button>
                 </div>
 
                 <div class="channel-list" id="channel-list">
@@ -278,6 +324,91 @@
 
         <!-- Settings button -->
         <button id="settings-btn" class="settings-btn">⚙️</button>
+
+        <!-- 🎬 全螢幕播放視圖 (新增) -->
+        <div id="fullscreen-player-view" class="fullscreen-player-view hidden">
+            <!-- 左側 Sidebar 頻道選擇器 -->
+            <div id="channel-sidebar" class="channel-sidebar">
+                <div class="sidebar-header">
+                    <h3>📺 頻道列表</h3>
+                    <div class="sidebar-controls">
+                        <button id="sidebar-close-btn" class="sidebar-close-btn">✕</button>
+                    </div>
+                </div>
+
+                <div class="sidebar-search">
+                    <input type="text" id="sidebar-search-input" placeholder="🔍 搜尋頻道..." class="sidebar-search-input">
+                    <span id="sidebar-channel-count" class="sidebar-channel-count">0 個頻道</span>
+                </div>
+
+                <div class="sidebar-categories">
+                    <button class="sidebar-category-btn active" data-category="all">全部</button>
+                    <button class="sidebar-category-btn" data-category="news">新聞</button>
+                    <button class="sidebar-category-btn" data-category="entertainment">綜藝</button>
+                    <button class="sidebar-category-btn" data-category="drama">戲劇</button>
+                    <button class="sidebar-category-btn" data-category="movie">電影</button>
+                    <button class="sidebar-category-btn" data-category="sports">體育</button>
+                    <button class="sidebar-category-btn" data-category="kids">兒童</button>
+                    <button class="sidebar-category-btn" data-category="international">國際</button>
+                </div>
+
+                <div id="sidebar-channels-list" class="sidebar-channels-list"></div>
+
+                <!-- 透明度控制 -->
+                <div class="sidebar-opacity-control">
+                    <label>
+                        <span>🎨 透明度</span>
+                        <input type="range" id="sidebar-opacity-slider" min="50" max="100" value="95" step="5">
+                        <span id="sidebar-opacity-value">95%</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Sidebar 開啟按鈕 (固定在左側) -->
+            <button id="sidebar-toggle-btn" class="sidebar-toggle-btn">
+                <span class="toggle-icon">▶</span>
+                <span class="toggle-text">頻道</span>
+            </button>
+
+            <div class="player-header">
+                <div class="player-header-content">
+                    <h2 id="playing-channel-name">頻道名稱</h2>
+                    <div class="player-header-actions">
+                        <button id="back-to-list-btn" class="back-btn">← 返回頻道列表</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="player-video-wrapper">
+                <video
+                    id="fullscreen-video"
+                    controls
+                    autoplay
+                    preload="auto"
+                    playsinline
+                    webkit-playsinline
+                    muted
+                    crossorigin="anonymous"
+                    style="width: 100%; height: 100%; object-fit: contain; background: #000;">
+                    您的瀏覽器不支援 HTML5 視頻播放。
+                </video>
+
+                <!-- Loading indicator for fullscreen player -->
+                <div id="fullscreen-loading" class="loading-indicator hidden">
+                    <div class="spinner"></div>
+                    <span>載入中...</span>
+                </div>
+
+                <!-- Error message for fullscreen player -->
+                <div id="fullscreen-error" class="error-message hidden">
+                    <div class="error-content">
+                        <h3>播放錯誤</h3>
+                        <p id="fullscreen-error-text"></p>
+                        <button id="fullscreen-retry-btn" class="retry-btn">重試</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Debug test buttons (hidden by default) -->
         <div id="debug-buttons" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: none; flex-direction: column; gap: 5px;">

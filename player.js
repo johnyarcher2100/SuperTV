@@ -542,9 +542,15 @@ class VideoPlayer {
     }
 
     onError(event) {
-        console.error('Video error:', event);
-        this.showError('播放發生錯誤，請重試');
-        this.updatePlayerInfo(this.currentChannel?.name || '', 'Error');
+        // 只在有頻道載入時才顯示錯誤
+        // 避免在初始化時因為沒有源而觸發錯誤提示
+        if (this.currentChannel) {
+            console.error('Video error:', event);
+            this.showError('播放發生錯誤，請重試');
+            this.updatePlayerInfo(this.currentChannel?.name || '', 'Error');
+        } else {
+            console.log('Video error ignored (no channel loaded)');
+        }
     }
 
     onWaiting() {

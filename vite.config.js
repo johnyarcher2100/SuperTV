@@ -24,6 +24,36 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => '/zyat7k.m3u'
       },
+      '/api/judy': {
+        target: 'https://files.catbox.moe',
+        changeOrigin: true,
+        rewrite: (path) => '/25aoli.txt'
+      },
+      '/api/laji': {
+        target: 'https://files.catbox.moe',
+        changeOrigin: true,
+        rewrite: (path) => '/1mj29e.m3u'
+      },
+      '/api/mimi': {
+        target: 'https://raw.githubusercontent.com',
+        changeOrigin: true,
+        rewrite: (path) => '/Guovin/iptv-api/gd/output/result.m3u'
+      },
+      '/api/gather': {
+        target: 'https://tv.iill.top',
+        changeOrigin: true,
+        rewrite: (path) => '/m3u/Gather'
+      },
+      '/api/jipin': {
+        target: 'https://files.catbox.moe',
+        changeOrigin: true,
+        rewrite: (path) => '/id0n84.txt'
+      },
+      '/api/yuanbao': {
+        target: 'https://chuxinya.top',
+        changeOrigin: true,
+        rewrite: (path) => '/f/DRGJH3/绿影流年.txt'
+      },
       '/api/stream': {
         target: 'http://breezy-audrie-zspace-7524863c.koyeb.app',
         changeOrigin: true,
