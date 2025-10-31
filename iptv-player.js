@@ -155,12 +155,32 @@ class IPTVPlayer {
         return canPlayHLS && (isSafari || isIOS);
     }
 
+    // 提取真實的源 URL（如果 URL 是通過代理的）
+    extractRealSourceUrl(url) {
+        try {
+            // 檢查是否為 220.134.196.147 代理格式
+            // 格式: http://220.134.196.147:PORT/http/REAL_SERVER/path
+            const proxyMatch = url.match(/^http:\/\/220\.134\.196\.147:\d+\/(https?:\/\/.+)$/i);
+            if (proxyMatch) {
+                const realUrl = proxyMatch[1].replace(/^http:\//, 'http://');
+                console.log('IPTV Player: Extracted real source URL:', realUrl);
+                return realUrl;
+            }
+        } catch (e) {
+            console.warn('Failed to extract real source URL:', e);
+        }
+        return url;
+    }
+
     // 在 HTTPS 環境將不安全的 http 串流改寫為同源代理，避免混合內容
     rewriteUrlForHttps(url) {
         try {
             if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && /^http:\/\//i.test(url)) {
+                // 先嘗試提取真實的源 URL
+                const realUrl = this.extractRealSourceUrl(url);
+
                 // 統一使用 Functions 代理，避免各種混合內容/CORS
-                const encoded = encodeURIComponent(url);
+                const encoded = encodeURIComponent(realUrl);
                 return `/api/proxy?url=${encoded}`;
             }
         } catch (_) {}
