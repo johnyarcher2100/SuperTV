@@ -1,12 +1,17 @@
+// ==========================================
+// 🚀 改進的 Netlify Functions 代理
+// ==========================================
+
 export async function handler(event) {
-  // 處理 CORS 預檢請求
+  // 處理 CORS 預檢
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
       headers: {
         'access-control-allow-origin': '*',
         'access-control-allow-methods': 'GET,HEAD,OPTIONS',
-        'access-control-allow-headers': '*'
+        'access-control-allow-headers': '*',
+        'access-control-max-age': '86400'
       },
       body: ''
     };
@@ -15,9 +20,7 @@ export async function handler(event) {
   try {
     const url = event.queryStringParameters?.url;
 
-    // 驗證 URL 參數
     if (!url) {
-      console.error('Proxy: Missing url parameter');
       return {
         statusCode: 400,
         headers: { 'access-control-allow-origin': '*' },
@@ -25,8 +28,8 @@ export async function handler(event) {
       };
     }
 
+    // 驗證 URL
     if (!/^https?:\/\//i.test(url)) {
-      console.error('Proxy: Invalid URL scheme:', url);
       return {
         statusCode: 400,
         headers: { 'access-control-allow-origin': '*' },
@@ -34,86 +37,120 @@ export async function handler(event) {
       };
     }
 
-    console.log('Proxy: Fetching URL:', url);
-    console.log('Proxy: Method:', event.httpMethod);
-    console.log('Proxy: Range header:', event.headers?.range);
+    console.log('Proxy: Fetching', url);
 
-    // 設置超時控制（8秒，留2秒給 Netlify）
+    // 設置超時（8 秒，留 2 秒給 Netlify）
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     try {
+      // 準備請求標頭
+      const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      };
+
+      // 處理 Range 請求（串流分段）
+      if (event.headers?.range) {
+        headers['Range'] = event.headers.range;
+      }
+
+      // 發送請求
       const upstream = await fetch(url, {
         method: event.httpMethod === 'HEAD' ? 'HEAD' : 'GET',
         redirect: 'follow',
         signal: controller.signal,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          ...(event.headers?.range ? { Range: event.headers.range } : {})
-        }
+        headers
       });
 
       clearTimeout(timeoutId);
 
-      console.log('Proxy: Upstream status:', upstream.status);
-      console.log('Proxy: Upstream headers:', Object.fromEntries(upstream.headers.entries()));
+      console.log('Proxy: Upstream status', upstream.status);
 
-      // 複製響應頭並添加 CORS
-      const headers = Object.fromEntries(upstream.headers.entries());
-      headers['access-control-allow-origin'] = '*';
-      headers['access-control-allow-headers'] = '*';
-      headers['access-control-allow-methods'] = 'GET,HEAD,OPTIONS';
-      headers['access-control-expose-headers'] = '*';
+      // 準備響應標頭
+      const responseHeaders = {
+        'access-control-allow-origin': '*',
+        'access-control-allow-headers': '*',
+        'access-control-allow-methods': 'GET,HEAD,OPTIONS',
+        'access-control-expose-headers': '*',
+        'cache-control': 'no-cache, no-store, must-revalidate'
+      };
 
-      // HEAD 請求只返回頭部
+      // 複製必要的上游標頭
+      const headersToForward = [
+        'content-type',
+        'content-length',
+        'content-range',
+        'accept-ranges',
+        'etag',
+        'last-modified'
+      ];
+
+      headersToForward.forEach(header => {
+        const value = upstream.headers.get(header);
+        if (value) {
+          responseHeaders[header] = value;
+        }
+      });
+
+      // HEAD 請求只返回標頭
       if (event.httpMethod === 'HEAD') {
-        return { statusCode: upstream.status, headers, body: '' };
+        return {
+          statusCode: upstream.status,
+          headers: responseHeaders,
+          body: ''
+        };
       }
 
       // 獲取響應體
       const arrayBuffer = await upstream.arrayBuffer();
-      console.log('Proxy: Response size:', arrayBuffer.byteLength, 'bytes');
+      console.log('Proxy: Response size', arrayBuffer.byteLength, 'bytes');
 
-      // 檢查是否為 m3u8 文件（需要重寫 URL）
-      const contentType = headers['content-type'] || '';
+      // 檢查是否為 m3u8 文件
+      const contentType = responseHeaders['content-type'] || '';
       const isM3U8 = url.includes('.m3u8') ||
                      contentType.includes('mpegurl') ||
                      contentType.includes('m3u8');
 
-      if (isM3U8) {
-        console.log('Proxy: Detected m3u8 file, rewriting URLs...');
+      if (isM3U8 && arrayBuffer.byteLength < 1024 * 1024) { // 只處理 < 1MB 的 m3u8
+        console.log('Proxy: Processing m3u8 file');
 
-        // 將響應轉為文本
+        // 轉為文本
         const text = Buffer.from(arrayBuffer).toString('utf-8');
 
-        // 提取基礎 URL（用於相對路徑）
+        // 提取基礎 URL
         const urlObj = new URL(url);
         const baseUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf('/') + 1)}`;
 
-        // 獲取當前請求的主機名（用於生成絕對 URL）
+        // 獲取當前請求的基礎 URL
         const host = event.headers.host || 'supertv.netlify.app';
         const protocol = event.headers['x-forwarded-proto'] || 'https';
+        const proxyBase = `${protocol}://${host}/.netlify/functions/proxy?url=`;
 
-        // 重寫 m3u8 中的所有 URL
+        // 重寫 URL
         const rewrittenText = text.split('\n').map(line => {
           // 跳過註釋和空行
           if (line.startsWith('#') || line.trim() === '') {
             return line;
           }
 
-          // 檢查是否為 URL 行
+          // 處理 URL 行
           if (line.trim().length > 0) {
             let targetUrl = line.trim();
 
             // 處理相對路徑
             if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-              targetUrl = baseUrl + targetUrl;
+              // 相對路徑：合併基礎 URL
+              if (targetUrl.startsWith('/')) {
+                // 絕對路徑：使用主機名
+                targetUrl = `${urlObj.protocol}//${urlObj.host}${targetUrl}`;
+              } else {
+                // 相對路徑：使用目錄
+                targetUrl = baseUrl + targetUrl;
+              }
             }
 
-            // 重寫為絕對代理 URL（iOS Safari 需要絕對 URL）
-            const proxiedUrl = `${protocol}://${host}/api/proxy?url=${encodeURIComponent(targetUrl)}`;
-            console.log('Proxy: Rewriting', targetUrl, '->', proxiedUrl);
-            return proxiedUrl;
+            // 重寫為代理 URL
+            return proxyBase + encodeURIComponent(targetUrl);
           }
 
           return line;
@@ -121,28 +158,29 @@ export async function handler(event) {
 
         // 更新 Content-Length
         const rewrittenBuffer = Buffer.from(rewrittenText, 'utf-8');
-        headers['content-length'] = rewrittenBuffer.byteLength.toString();
+        responseHeaders['content-length'] = rewrittenBuffer.byteLength.toString();
 
         return {
           statusCode: upstream.status,
-          headers,
+          headers: responseHeaders,
           body: rewrittenBuffer.toString('base64'),
           isBase64Encoded: true
         };
       }
 
-      // 非 m3u8 文件，直接返回
+      // 非 m3u8 文件或大文件，直接返回
       return {
         statusCode: upstream.status,
-        headers,
+        headers: responseHeaders,
         body: Buffer.from(arrayBuffer).toString('base64'),
         isBase64Encoded: true
       };
+
     } catch (fetchError) {
       clearTimeout(timeoutId);
 
       if (fetchError.name === 'AbortError') {
-        console.error('Proxy: Request timeout for URL:', url);
+        console.error('Proxy: Request timeout');
         return {
           statusCode: 504,
           headers: { 'access-control-allow-origin': '*' },
@@ -152,8 +190,9 @@ export async function handler(event) {
 
       throw fetchError;
     }
+
   } catch (err) {
-    console.error('Proxy: Error:', err.message, err.stack);
+    console.error('Proxy: Error', err.message);
     return {
       statusCode: 502,
       headers: { 'access-control-allow-origin': '*' },

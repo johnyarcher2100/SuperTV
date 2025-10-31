@@ -9,8 +9,19 @@ class IPTVPlayer {
         this.currentUrl = null;
         this.retryCount = 0;
         this.maxRetries = 3;
-        
+
+        // 性能監控
+        this.performanceMetrics = {
+            bufferingEvents: 0,
+            stallEvents: 0,
+            lastBufferTime: 0,
+            totalBufferTime: 0,
+            loadStartTime: 0,
+            playbackStartTime: 0
+        };
+
         this.setupVideoElement();
+        this.setupPerformanceMonitoring();
     }
 
     setupVideoElement() {
@@ -19,7 +30,7 @@ class IPTVPlayer {
         this.video.setAttribute('webkit-playsinline', '');
         this.video.setAttribute('crossorigin', 'anonymous');
         this.video.muted = true; // 允許自動播放
-        
+
         // 添加事件監聽
         this.video.addEventListener('loadstart', () => this.onLoadStart());
         this.video.addEventListener('loadedmetadata', () => this.onLoadedMetadata());
@@ -28,6 +39,39 @@ class IPTVPlayer {
         this.video.addEventListener('error', (e) => this.onError(e));
         this.video.addEventListener('stalled', () => this.onStalled());
         this.video.addEventListener('waiting', () => this.onWaiting());
+    }
+
+    setupPerformanceMonitoring() {
+        // 監控緩衝事件
+        this.video.addEventListener('waiting', () => {
+            this.performanceMetrics.bufferingEvents++;
+            this.performanceMetrics.lastBufferTime = Date.now();
+            console.log('📊 Performance: Buffering event #' + this.performanceMetrics.bufferingEvents);
+        });
+
+        this.video.addEventListener('playing', () => {
+            if (this.performanceMetrics.lastBufferTime > 0) {
+                const bufferDuration = Date.now() - this.performanceMetrics.lastBufferTime;
+                this.performanceMetrics.totalBufferTime += bufferDuration;
+                console.log(`📊 Performance: Buffering resolved in ${bufferDuration}ms`);
+                this.performanceMetrics.lastBufferTime = 0;
+            }
+        });
+
+        // 監控卡頓事件
+        this.video.addEventListener('stalled', () => {
+            this.performanceMetrics.stallEvents++;
+            console.warn('⚠️ Performance: Stall event #' + this.performanceMetrics.stallEvents);
+        });
+
+        // 定期報告性能指標
+        setInterval(() => {
+            if (this.video.buffered.length > 0) {
+                const bufferedEnd = this.video.buffered.end(this.video.buffered.length - 1);
+                const bufferedAmount = bufferedEnd - this.video.currentTime;
+                console.log(`📊 Performance: Buffered ahead: ${bufferedAmount.toFixed(2)}s`);
+            }
+        }, 30000); // 每30秒報告一次
     }
 
     async loadStream(url) {
@@ -283,18 +327,19 @@ class IPTVPlayer {
                 enableWorker: true,
                 lowLatencyMode: false, // 對於 IPTV 直播，關閉低延遲模式
 
-                // 🚀 優化緩衝設置 - 大幅增加緩衝區
-                backBufferLength: 180,           // 後緩衝區增加到 3 分鐘
-                maxBufferLength: 90,             // 最大緩衝區增加到 1.5 分鐘
-                maxMaxBufferLength: 1200,        // 最大最大緩衝區增加到 20 分鐘
-                maxBufferSize: 200 * 1000 * 1000, // 緩衝區大小增加到 200MB
-                maxBufferHole: 0.2,              // 減少緩衝區洞的容忍度
-                highBufferWatchdogPeriod: 1,     // 更頻繁的緩衝區監控
+                // 🚀 優化緩衝設置 - 更激進的緩衝策略以確保流暢播放
+                backBufferLength: 90,            // 後緩衝區 1.5 分鐘（減少以節省記憶體）
+                maxBufferLength: 120,            // 最大緩衝區增加到 2 分鐘
+                maxMaxBufferLength: 600,         // 最大最大緩衝區 10 分鐘（平衡性能）
+                maxBufferSize: 300 * 1000 * 1000, // 緩衝區大小增加到 300MB
+                maxBufferHole: 0.5,              // 增加緩衝區洞容忍度（避免頻繁跳轉）
+                highBufferWatchdogPeriod: 2,     // 緩衝區監控週期（避免過度檢查）
 
-                // 🎯 品質和適應性設置
+                // 🎯 品質和適應性設置 - 更積極的 ABR
                 startLevel: -1,                  // 自動選擇起始品質
                 capLevelToPlayerSize: false,     // 不限制品質到播放器大小
                 autoStartLoad: true,             // 自動開始載入
+                startPosition: -1,               // 從直播邊緣開始
 
                 // 🌐 網路優化設置
                 manifestLoadingTimeOut: 20000,   // 清單載入超時增加到 20 秒
@@ -345,14 +390,19 @@ class IPTVPlayer {
                     });
                 },
 
-                // 🎛️ 頻寬管理
-                abrBandWidthFactor: 0.9,        // 頻寬因子
-                abrBandWidthUpFactor: 0.6,      // 頻寬上升因子
+                // 🎛️ 頻寬管理 - 更積極的品質切換
+                abrBandWidthFactor: 0.95,       // 提高頻寬因子（更積極使用可用頻寬）
+                abrBandWidthUpFactor: 0.7,      // 提高上升因子（更快切換到高品質）
+                abrEwmaFastLive: 3,             // 快速 EWMA 權重（直播）
+                abrEwmaSlowLive: 9,             // 慢速 EWMA 權重（直播）
+                abrEwmaDefaultEstimate: 500000, // 預設頻寬估計 500kbps
+                abrMaxWithRealBitrate: true,    // 使用實際比特率進行 ABR
 
-                // 🔄 片段處理優化
-                nudgeOffset: 0.05,              // 減少微調偏移
-                nudgeMaxRetry: 8,               // 增加微調重試次數
-                maxFragLookUpTolerance: 0.15,   // 減少片段查找容忍度
+                // 🔄 片段處理優化 - 更流暢的播放
+                nudgeOffset: 0.1,               // 增加微調偏移（減少卡頓）
+                nudgeMaxRetry: 10,              // 增加微調重試次數
+                maxFragLookUpTolerance: 0.25,   // 增加片段查找容忍度（更寬容）
+                progressive: true,              // 啟用漸進式下載
 
                 // ⏱️ 超時設置
                 fragLoadingMaxRetryTimeout: 120000,    // 片段載入最大重試超時 2 分鐘
@@ -367,8 +417,33 @@ class IPTVPlayer {
 
             this.hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
                 console.log('IPTV Player: HLS manifest parsed, levels:', data.levels.length);
+                this.performanceMetrics.loadStartTime = Date.now();
                 this.startPlayback();
                 resolve();
+            });
+
+            // 🎯 監控品質切換
+            this.hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
+                console.log(`📊 Quality switched to level ${data.level}`);
+            });
+
+            // 🚀 監控片段載入性能
+            this.hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+                const loadTime = data.stats.loading.end - data.stats.loading.start;
+                if (loadTime > 3000) {
+                    console.warn(`⚠️ Slow fragment load: ${loadTime}ms`);
+                }
+            });
+
+            // 📊 監控緩衝區狀態
+            this.hls.on(Hls.Events.BUFFER_APPENDED, () => {
+                if (this.video.buffered.length > 0) {
+                    const bufferedEnd = this.video.buffered.end(this.video.buffered.length - 1);
+                    const bufferedAmount = bufferedEnd - this.video.currentTime;
+                    if (bufferedAmount < 5) {
+                        console.warn(`⚠️ Low buffer: ${bufferedAmount.toFixed(2)}s`);
+                    }
+                }
             });
 
             this.hls.on(Hls.Events.ERROR, (event, data) => {
@@ -659,9 +734,27 @@ class IPTVPlayer {
             this.video.preload = 'auto';
             this.video.playsInline = true; // 移動設備內聯播放
 
+            // 等待視頻準備好（至少有一些數據）
+            if (this.video.readyState < 2) {
+                await new Promise((resolve) => {
+                    const onCanPlay = () => {
+                        this.video.removeEventListener('canplay', onCanPlay);
+                        resolve();
+                    };
+                    this.video.addEventListener('canplay', onCanPlay);
+                    // 超時保護
+                    setTimeout(resolve, 5000);
+                });
+            }
+
             // 🚀 強制嘗試播放
             await this.video.play();
             console.log('✅ IPTV Player: Automatic playback started successfully');
+
+            // 記錄播放開始時間
+            this.performanceMetrics.playbackStartTime = Date.now();
+            const loadTime = this.performanceMetrics.playbackStartTime - this.performanceMetrics.loadStartTime;
+            console.log(`📊 Performance: Time to playback: ${loadTime}ms`);
 
             // 🔊 播放成功後自動取消靜音，讓用戶聽到聲音
             setTimeout(() => {
