@@ -1,4 +1,51 @@
 /**
+ * 🎯 代理配置 - 處理 CORS 和混合內容問題
+ */
+const PROXY_CONFIG = {
+    // 需要代理的域名列表
+    domains: [
+        'smart.pendy.dpdns.org',
+        'simate.pendy.dpdns.org',
+        '220.134.196.147',
+        'breezy-audrie-zspace',
+        '晓峰.azip.dpdns.org'
+    ],
+
+    /**
+     * 檢查 URL 是否需要代理
+     * @param {string} url - 要檢查的 URL
+     * @returns {boolean} - 是否需要代理
+     */
+    needsProxy(url) {
+        if (!url) return false;
+        const urlLower = url.toLowerCase();
+
+        // 在 HTTPS 環境下，檢查是否需要代理
+        if (typeof window !== 'undefined' && window.location?.protocol === 'https:') {
+            // HTTP URL 需要代理（避免混合內容）
+            if (urlLower.startsWith('http://')) return true;
+
+            // 特定域名需要代理（CORS 問題）
+            return this.domains.some(domain => urlLower.includes(domain));
+        }
+
+        return false;
+    },
+
+    /**
+     * 將 URL 轉換為代理 URL
+     * @param {string} url - 原始 URL
+     * @returns {string} - 代理 URL 或原始 URL
+     */
+    toProxyUrl(url) {
+        if (!this.needsProxy(url)) return url;
+
+        console.log('🔄 Using proxy for:', url);
+        return `/.netlify/functions/proxy?url=${encodeURIComponent(url)}`;
+    }
+};
+
+/**
  * 專業 IPTV 播放器類
  * 基於網路最佳實踐，專門處理 m3u8 直播流
  */
@@ -210,17 +257,17 @@ class IPTVPlayer {
         return canPlayHLS && (isSafari || isIOS);
     }
 
-    // 在 HTTPS 環境將不安全的 http 串流改寫為同源代理，避免混合內容
+    /**
+     * 在 HTTPS 環境將不安全的 http 串流改寫為同源代理，避免混合內容
+     * 使用統一的 PROXY_CONFIG 處理所有代理需求
+     */
     rewriteUrlForHttps(url) {
         try {
-            if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && /^http:\/\//i.test(url)) {
-                // 統一使用 Functions 代理，避免各種混合內容/CORS
-                // 注意：保持原始 URL 不變，因為 220.134.196.147 是必需的代理
-                const encoded = encodeURIComponent(url);
-                return `/api/proxy?url=${encoded}`;
-            }
-        } catch (_) {}
-        return url;
+            return PROXY_CONFIG.toProxyUrl(url);
+        } catch (error) {
+            console.error('Error in rewriteUrlForHttps:', error);
+            return url;
+        }
     }
 
     async loadNativeHLS(url) {
@@ -374,14 +421,20 @@ class IPTVPlayer {
                 },
 
                 fetchSetup: function(context, initParams) {
-                    const proxiedUrl = self.rewriteUrlForHttps(context.url);
+                    // 使用統一的代理配置
+                    let targetUrl = PROXY_CONFIG.toProxyUrl(context.url);
+
                     const headers = new Headers(initParams?.headers || {});
-                    // 盡量攜帶 Range 與 UA 以提升相容性
-                    if (context.rangeStart) {
+
+                    // 處理 Range 請求（用於分段下載）
+                    if (context.rangeStart !== undefined) {
                         headers.set('Range', `bytes=${context.rangeStart}-${context.rangeEnd || ''}`);
                     }
+
+                    // 設置 User-Agent
                     headers.set('User-Agent', headers.get('User-Agent') || 'Mozilla/5.0');
-                    return new Request(proxiedUrl, {
+
+                    return new Request(targetUrl, {
                         ...initParams,
                         headers,
                         mode: 'cors',
@@ -600,7 +653,8 @@ class IPTVPlayer {
 
         // 清除現有內容並設置新源
         this.video.innerHTML = '';
-        const sourceUrl = this.rewriteUrlForHttps(url);
+        // 使用統一的代理配置
+        const sourceUrl = PROXY_CONFIG.toProxyUrl(url);
 
         // 檢測是否為 iOS
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
