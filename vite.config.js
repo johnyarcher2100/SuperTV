@@ -61,9 +61,28 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/stream/, '/sub')
       },
       '/api/proxy': {
-        target: 'http://220.134.196.147:8567',
+        target: 'http://220.134.196.147',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/proxy/, '')
+        rewrite: (path) => {
+          // /api/proxy/8567/http/... -> /8567/http/...
+          // 或 /api/proxy?url=http://... -> 直接返回原始路徑
+          if (path.includes('?url=')) {
+            // 處理查詢參數形式
+            const urlMatch = path.match(/\?url=([^&]+)/);
+            if (urlMatch) {
+              try {
+                const targetUrl = decodeURIComponent(urlMatch[1]);
+                const urlObj = new URL(targetUrl);
+                console.log('Vite proxy: rewriting to', urlObj.pathname + urlObj.search);
+                return urlObj.pathname + urlObj.search;
+              } catch (e) {
+                console.error('Failed to parse proxy URL:', e);
+              }
+            }
+          }
+          // 處理路徑形式: /api/proxy/rest/of/path -> /rest/of/path
+          return path.replace(/^\/api\/proxy/, '');
+        }
       }
     }
   },

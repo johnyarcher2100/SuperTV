@@ -535,11 +535,14 @@ class IPTVPlayer {
             }
 
             // 檢查是否為有 CORS/混合內容問題的串流 (220.134.196.147:任何埠)
-            if (url.includes('220.134.196.147')) {
-                console.log('IPTV Player: Detected potentially CORS/mixed-content stream, rewriting to proxy...');
+            // 只在 HTTPS 環境下才使用代理
+            if (url.includes('220.134.196.147') && window.location?.protocol === 'https:') {
+                console.log('IPTV Player: Detected potentially CORS/mixed-content stream in HTTPS, rewriting to proxy...');
                 try {
-                    // 將 http://220.134.196.147:<port>/xxx 統一改寫為 /api/proxy/<port>/xxx
-                    const proxyUrl = url.replace(/^http:\/\/220\.134\.196\.147(?::\d+)?/i, '/api/proxy');
+                    // 將 http://220.134.196.147:<port>/xxx 統一改寫為 /api/proxy?url=...
+                    const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
+                    console.log('IPTV Player: Rewritten URL:', proxyUrl);
+
                     const response = await fetch(proxyUrl, {
                         method: 'HEAD',
                         redirect: 'follow'
