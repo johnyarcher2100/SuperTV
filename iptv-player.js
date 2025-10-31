@@ -18,6 +18,12 @@ const PROXY_CONFIG = {
      */
     needsProxy(url) {
         if (!url) return false;
+
+        // 避免重複代理：如果已經是代理 URL，不需要再代理
+        if (url.includes('/.netlify/functions/proxy?url=')) {
+            return false;
+        }
+
         const urlLower = url.toLowerCase();
 
         // 在 HTTPS 環境下，檢查是否需要代理
@@ -38,6 +44,13 @@ const PROXY_CONFIG = {
      * @returns {string} - 代理 URL 或原始 URL
      */
     toProxyUrl(url) {
+        if (!url) return url;
+
+        // 避免重複代理：如果已經是代理 URL，直接返回
+        if (url.includes('/.netlify/functions/proxy?url=')) {
+            return url;
+        }
+
         if (!this.needsProxy(url)) return url;
 
         console.log('🔄 Using proxy for:', url);
