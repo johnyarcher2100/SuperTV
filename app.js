@@ -485,6 +485,25 @@ class SuperTVApp {
 
     async loadGoldenSource() {
         try {
+            // 檢測是否為 iOS 且在 HTTPS 環境
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isHTTPS = window.location.protocol === 'https:';
+
+            if (isIOS && isHTTPS) {
+                // iOS 在 HTTPS 環境下無法使用黃金直播源（私有 IP 問題）
+                this.hideLoading();
+                this.showError(
+                    '⚠️ 黃金直播源在 iOS 上暫不可用\n\n' +
+                    '原因：該直播源使用私有伺服器，無法在雲端環境訪問。\n\n' +
+                    '請使用以下替代方案：\n' +
+                    '✅ 秒開直播源（推薦）\n' +
+                    '✅ Judy 直播源\n' +
+                    '✅ 曉峰直播源\n' +
+                    '✅ Gather 直播源'
+                );
+                return;
+            }
+
             // Show loading
             this.showLoading('載入黃金直播源...');
 

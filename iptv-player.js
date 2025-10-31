@@ -56,8 +56,27 @@ class IPTVPlayer {
     }
 
     async tryMultipleLoadMethods(url) {
-        const methods = [
-            // 方法 1: 智能檢測 (優先使用最適合的播放器)
+        // 檢測是否為 iOS
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+        // iOS 優先使用原生播放器，桌面優先使用 HLS.js
+        const methods = isIOS ? [
+            // iOS 方法 1: 原生 HLS 播放器
+            async () => {
+                console.log('IPTV Player: Using native HLS player (iOS)');
+                if (this.isHLSStream(url)) {
+                    return await this.loadNativeHLS(url);
+                } else {
+                    return await this.loadNativeStream(url);
+                }
+            },
+            // iOS 方法 2: 原生播放器後備
+            async () => {
+                console.log('IPTV Player: Fallback to native stream player (iOS)');
+                return await this.loadNativeStream(url);
+            }
+        ] : [
+            // 桌面方法 1: 智能檢測 (HLS.js 優先)
             async () => {
                 if (this.isHLSStream(url)) {
                     return await this.loadHLSStream(url);
@@ -65,22 +84,17 @@ class IPTVPlayer {
                     return await this.loadNativeStream(url);
                 }
             },
-            // 方法 2: 強制使用原生播放器 (iOS Safari 等)
-            async () => {
-                console.log('IPTV Player: Forcing native player');
-                return await this.loadNativeStream(url);
-            },
-            // 方法 3: 強制使用 HLS.js (如果可用，桌面瀏覽器)
+            // 桌面方法 2: 強制使用 HLS.js
             async () => {
                 if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-                    console.log('IPTV Player: Forcing HLS.js for problematic stream');
+                    console.log('IPTV Player: Forcing HLS.js');
                     return await this.loadWithHLSJS(url);
                 }
                 throw new Error('HLS.js not available');
             },
-            // 方法 4: 最後嘗試 - 使用原生播放器作為後備
+            // 桌面方法 3: 原生播放器後備
             async () => {
-                console.log('IPTV Player: Final fallback - using native player');
+                console.log('IPTV Player: Fallback to native player');
                 return await this.loadNativeStream(url);
             }
         ];
@@ -96,9 +110,9 @@ class IPTVPlayer {
                 console.warn(`IPTV Player: Loading method ${i + 1} failed:`, error.message);
                 lastError = error;
 
-                // 在嘗試下一個方法前稍作等待
+                // 在嘗試下一個方法前稍作等待（減少跳閃）
                 if (i < methods.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
             }
         }
@@ -152,32 +166,13 @@ class IPTVPlayer {
         return canPlayHLS && (isSafari || isIOS);
     }
 
-    // 提取真實的源 URL（如果 URL 是通過代理的）
-    extractRealSourceUrl(url) {
-        try {
-            // 檢查是否為 220.134.196.147 代理格式
-            // 格式: http://220.134.196.147:PORT/http/REAL_SERVER/path
-            const proxyMatch = url.match(/^http:\/\/220\.134\.196\.147:\d+\/(https?:\/\/.+)$/i);
-            if (proxyMatch) {
-                const realUrl = proxyMatch[1].replace(/^http:\//, 'http://');
-                console.log('IPTV Player: Extracted real source URL:', realUrl);
-                return realUrl;
-            }
-        } catch (e) {
-            console.warn('Failed to extract real source URL:', e);
-        }
-        return url;
-    }
-
     // 在 HTTPS 環境將不安全的 http 串流改寫為同源代理，避免混合內容
     rewriteUrlForHttps(url) {
         try {
             if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && /^http:\/\//i.test(url)) {
-                // 先嘗試提取真實的源 URL
-                const realUrl = this.extractRealSourceUrl(url);
-
                 // 統一使用 Functions 代理，避免各種混合內容/CORS
-                const encoded = encodeURIComponent(realUrl);
+                // 注意：保持原始 URL 不變，因為 220.134.196.147 是必需的代理
+                const encoded = encodeURIComponent(url);
                 return `/api/proxy?url=${encoded}`;
             }
         } catch (_) {}
