@@ -953,8 +953,32 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
                 console.error('❌ Failed to load channel in fullscreen player:', error);
                 loadingIndicator.classList.add('hidden');
                 errorMessage.classList.remove('hidden');
-                document.getElementById('fullscreen-error-text').textContent =
-                    `無法播放此頻道: ${error.message}`;
+
+                // 提供更友善的錯誤訊息
+                let errorMsg = `無法播放此頻道: ${error.message}`;
+
+                // 檢測是否為 iOS
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+                if (isIOS) {
+                    if (error.message.includes('format not supported') || error.message.includes('Video format')) {
+                        errorMsg = `📱 iOS 播放錯誤\n\n` +
+                                  `此頻道的視頻格式可能不被 iOS Safari 支援。\n\n` +
+                                  `建議：\n` +
+                                  `✅ 嘗試其他頻道\n` +
+                                  `✅ 使用其他直播源（如秒開直播源）\n` +
+                                  `✅ 確保網路連接穩定`;
+                    } else if (error.message.includes('Network') || error.message.includes('timeout')) {
+                        errorMsg = `📱 網路連接問題\n\n` +
+                                  `無法連接到此頻道的串流伺服器。\n\n` +
+                                  `建議：\n` +
+                                  `✅ 檢查網路連接\n` +
+                                  `✅ 嘗試其他頻道\n` +
+                                  `✅ 稍後再試`;
+                    }
+                }
+
+                document.getElementById('fullscreen-error-text').textContent = errorMsg;
             });
 
         // 渲染 Sidebar 頻道列表

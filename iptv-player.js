@@ -187,6 +187,7 @@ class IPTVPlayer {
                 this.video.removeEventListener('canplay', onCanPlay);
                 this.video.removeEventListener('error', onError);
                 this.video.removeEventListener('loadeddata', onLoadedData);
+                this.video.removeEventListener('loadedmetadata', onLoadedMetadata);
                 if (timeoutId) clearTimeout(timeoutId);
             };
 
@@ -200,6 +201,11 @@ class IPTVPlayer {
                 cleanup();
                 this.startPlayback();
                 resolve();
+            };
+
+            const onLoadedMetadata = () => {
+                console.log('IPTV Player: Metadata loaded for native HLS');
+                // Don't resolve yet, wait for canplay or loadeddata
             };
 
             const onError = (event) => {
@@ -228,18 +234,34 @@ class IPTVPlayer {
 
             this.video.addEventListener('canplay', onCanPlay);
             this.video.addEventListener('loadeddata', onLoadedData);
+            this.video.addEventListener('loadedmetadata', onLoadedMetadata);
             this.video.addEventListener('error', onError);
 
             // 在 HTTPS 環境下重寫 URL
             const sourceUrl = this.rewriteUrlForHttps(url);
             console.log('IPTV Player: Loading native HLS with URL:', sourceUrl);
 
-            // 設置 source 元素
-            this.video.innerHTML = '';
-            const source = document.createElement('source');
-            source.src = sourceUrl;
-            source.type = 'application/x-mpegURL';
-            this.video.appendChild(source);
+            // iOS Safari 需要直接設置 src 而不是使用 source 元素
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+            if (isIOS) {
+                // iOS: 直接設置 src 屬性
+                console.log('IPTV Player: Using direct src for iOS');
+                this.video.src = sourceUrl;
+            } else {
+                // 其他瀏覽器: 使用 source 元素
+                this.video.innerHTML = '';
+                const source = document.createElement('source');
+                source.src = sourceUrl;
+                source.type = 'application/x-mpegURL';
+                this.video.appendChild(source);
+
+                // 添加備用 MIME 類型
+                const source2 = document.createElement('source');
+                source2.src = sourceUrl;
+                source2.type = 'application/vnd.apple.mpegurl';
+                this.video.appendChild(source2);
+            }
 
             this.video.load();
         });
@@ -504,7 +526,30 @@ class IPTVPlayer {
         // 清除現有內容並設置新源
         this.video.innerHTML = '';
         const sourceUrl = this.rewriteUrlForHttps(url);
-        this.video.src = sourceUrl;
+
+        // 檢測是否為 iOS
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+        // 檢測是否為 HLS 流
+        const isHLS = this.isHLSStream(url);
+
+        if (isHLS && !isIOS) {
+            // 非 iOS 的 HLS 流：使用 source 元素並指定 MIME 類型
+            const source = document.createElement('source');
+            source.src = sourceUrl;
+            source.type = 'application/x-mpegURL';
+            this.video.appendChild(source);
+
+            // 添加備用 MIME 類型
+            const source2 = document.createElement('source');
+            source2.src = sourceUrl;
+            source2.type = 'application/vnd.apple.mpegurl';
+            this.video.appendChild(source2);
+        } else {
+            // iOS 或非 HLS 流：直接設置 src
+            this.video.src = sourceUrl;
+        }
+
         this.video.load();
     }
 
