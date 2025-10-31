@@ -90,6 +90,10 @@ export async function handler(event) {
         const urlObj = new URL(url);
         const baseUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf('/') + 1)}`;
 
+        // 獲取當前請求的主機名（用於生成絕對 URL）
+        const host = event.headers.host || 'supertv.netlify.app';
+        const protocol = event.headers['x-forwarded-proto'] || 'https';
+
         // 重寫 m3u8 中的所有 URL
         const rewrittenText = text.split('\n').map(line => {
           // 跳過註釋和空行
@@ -106,8 +110,8 @@ export async function handler(event) {
               targetUrl = baseUrl + targetUrl;
             }
 
-            // 重寫為代理 URL
-            const proxiedUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+            // 重寫為絕對代理 URL（iOS Safari 需要絕對 URL）
+            const proxiedUrl = `${protocol}://${host}/api/proxy?url=${encodeURIComponent(targetUrl)}`;
             console.log('Proxy: Rewriting', targetUrl, '->', proxiedUrl);
             return proxiedUrl;
           }
