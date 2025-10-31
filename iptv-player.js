@@ -678,8 +678,12 @@ class IPTVPlayer {
             this.video.muted = false;
             this.video.volume = 0.8;
 
-            // 拋出錯誤讓上層處理（顯示播放按鈕）
-            throw error;
+            // ⚠️ Chrome 和其他瀏覽器可能會阻止自動播放
+            // 但這不應該被視為載入失敗 - 視頻已經準備好，只是需要用戶互動
+            console.log('💡 IPTV Player: Video loaded successfully, waiting for user interaction to play');
+
+            // 不要拋出錯誤，讓視頻保持在準備好的狀態
+            // 用戶點擊播放按鈕時會觸發播放
         }
     }
 

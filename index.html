@@ -399,6 +399,17 @@
                     <span>載入中...</span>
                 </div>
 
+                <!-- Play button overlay for when autoplay is blocked -->
+                <div id="fullscreen-play-overlay" class="play-overlay hidden">
+                    <button id="fullscreen-play-btn" class="big-play-btn">
+                        <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                            <circle cx="40" cy="40" r="38" stroke="white" stroke-width="3" fill="rgba(0,0,0,0.5)"/>
+                            <path d="M32 25 L32 55 L55 40 Z" fill="white"/>
+                        </svg>
+                        <span>點擊播放</span>
+                    </button>
+                </div>
+
                 <!-- Error message for fullscreen player -->
                 <div id="fullscreen-error" class="error-message hidden">
                     <div class="error-content">

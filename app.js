@@ -133,6 +133,27 @@ class SuperTVApp {
             });
         }
 
+        // 全螢幕播放器播放按鈕（當自動播放被阻止時）
+        const fullscreenPlayBtn = document.getElementById('fullscreen-play-btn');
+        const fullscreenPlayOverlay = document.getElementById('fullscreen-play-overlay');
+        if (fullscreenPlayBtn && fullscreenPlayOverlay) {
+            const playHandler = () => {
+                const video = document.getElementById('fullscreen-video');
+                if (video) {
+                    video.muted = false;
+                    video.play().then(() => {
+                        console.log('✅ User initiated playback successful');
+                        fullscreenPlayOverlay.classList.add('hidden');
+                    }).catch(error => {
+                        console.error('❌ User initiated playback failed:', error);
+                    });
+                }
+            };
+
+            fullscreenPlayBtn.addEventListener('click', playHandler);
+            fullscreenPlayOverlay.addEventListener('click', playHandler);
+        }
+
         // 🎨 Sidebar 控制
         this.setupSidebarControls();
     }
@@ -929,11 +950,13 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         // 更新頻道名稱
         document.getElementById('playing-channel-name').textContent = channel.name;
 
-        // 顯示載入指示器
+        // 顯示載入指示器，隱藏錯誤和播放按鈕
         const loadingIndicator = document.getElementById('fullscreen-loading');
         const errorMessage = document.getElementById('fullscreen-error');
+        const playOverlay = document.getElementById('fullscreen-play-overlay');
         loadingIndicator.classList.remove('hidden');
         errorMessage.classList.add('hidden');
+        if (playOverlay) playOverlay.classList.add('hidden');
 
         // 載入視頻
         const video = document.getElementById('fullscreen-video');
@@ -948,6 +971,23 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
             .then(() => {
                 console.log('✅ Channel loaded successfully in fullscreen player');
                 loadingIndicator.classList.add('hidden');
+
+                // 檢查視頻是否正在播放，如果沒有則顯示播放按鈕
+                setTimeout(() => {
+                    const video = document.getElementById('fullscreen-video');
+                    const playOverlay = document.getElementById('fullscreen-play-overlay');
+
+                    if (video.paused && video.readyState >= 2) {
+                        // 視頻已載入但未播放（可能被瀏覽器阻止自動播放）
+                        console.log('💡 Video loaded but not playing, showing play button');
+                        if (playOverlay) {
+                            playOverlay.classList.remove('hidden');
+                        }
+                    } else if (!video.paused && playOverlay) {
+                        // 確保播放按鈕隱藏
+                        playOverlay.classList.add('hidden');
+                    }
+                }, 2000);
             })
             .catch(error => {
                 console.error('❌ Failed to load channel in fullscreen player:', error);
@@ -957,8 +997,10 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
                 // 提供更友善的錯誤訊息
                 let errorMsg = `無法播放此頻道: ${error.message}`;
 
-                // 檢測是否為 iOS
+                // 檢測瀏覽器類型
                 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                const isChrome = /Chrome/.test(navigator.userAgent) && !/Edge/.test(navigator.userAgent);
+                const isFirefox = /Firefox/.test(navigator.userAgent);
 
                 if (isIOS) {
                     if (error.message.includes('format not supported') || error.message.includes('Video format')) {
@@ -975,6 +1017,41 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
                                   `✅ 檢查網路連接\n` +
                                   `✅ 嘗試其他頻道\n` +
                                   `✅ 稍後再試`;
+                    }
+                } else if (isChrome) {
+                    if (error.message.includes('format not supported') || error.message.includes('Video format')) {
+                        errorMsg = `🌐 Chrome 播放錯誤\n\n` +
+                                  `此頻道的視頻格式可能不被 Chrome 支援。\n\n` +
+                                  `建議：\n` +
+                                  `✅ 嘗試其他頻道\n` +
+                                  `✅ 使用其他直播源\n` +
+                                  `✅ 檢查是否已載入 HLS.js 庫`;
+                    } else if (error.message.includes('Network') || error.message.includes('timeout')) {
+                        errorMsg = `🌐 網路連接問題\n\n` +
+                                  `無法連接到此頻道的串流伺服器。\n\n` +
+                                  `可能原因：\n` +
+                                  `• CORS 跨域限制\n` +
+                                  `• 串流伺服器無回應\n` +
+                                  `• 網路連接不穩定\n\n` +
+                                  `建議：\n` +
+                                  `✅ 嘗試其他頻道\n` +
+                                  `✅ 檢查網路連接\n` +
+                                  `✅ 稍後再試`;
+                    } else if (error.message.includes('HLS')) {
+                        errorMsg = `🌐 HLS 載入錯誤\n\n` +
+                                  `HLS.js 播放器遇到問題。\n\n` +
+                                  `建議：\n` +
+                                  `✅ 點擊「重試」按鈕\n` +
+                                  `✅ 嘗試其他頻道\n` +
+                                  `✅ 重新整理頁面`;
+                    }
+                } else if (isFirefox) {
+                    if (error.message.includes('format not supported') || error.message.includes('Video format')) {
+                        errorMsg = `🦊 Firefox 播放錯誤\n\n` +
+                                  `此頻道的視頻格式可能不被 Firefox 支援。\n\n` +
+                                  `建議：\n` +
+                                  `✅ 嘗試其他頻道\n` +
+                                  `✅ 使用其他直播源`;
                     }
                 }
 
