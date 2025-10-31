@@ -1195,7 +1195,25 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
 
             const categoryText = this.getCategoryText(channel.category);
 
+            // 構建圖標 HTML
+            let logoHTML = '';
+            if (channel.logo) {
+                logoHTML = `
+                    <div class="channel-logo-container">
+                        <img src="${channel.logo}" alt="${channel.name}" class="channel-logo"
+                             onerror="this.parentElement.innerHTML='<div class=\\'channel-text-icon\\'>${channel.textIcon || channel.name.substring(0, 2)}</div>'">
+                    </div>
+                `;
+            } else {
+                logoHTML = `
+                    <div class="channel-logo-container">
+                        <div class="channel-text-icon">${channel.textIcon || channel.name.substring(0, 2)}</div>
+                    </div>
+                `;
+            }
+
             item.innerHTML = `
+                ${logoHTML}
                 <div class="channel-name">${channel.name}</div>
                 <div class="channel-category">${categoryText}</div>
             `;
