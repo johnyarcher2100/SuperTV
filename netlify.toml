@@ -32,6 +32,48 @@
   status = 200
   force = true
 
+# /api/judy -> https://files.catbox.moe/25aoli.txt
+[[redirects]]
+  from = "/api/judy"
+  to = "https://files.catbox.moe/25aoli.txt"
+  status = 200
+  force = true
+
+# /api/laji -> https://files.catbox.moe/1mj29e.m3u
+[[redirects]]
+  from = "/api/laji"
+  to = "https://files.catbox.moe/1mj29e.m3u"
+  status = 200
+  force = true
+
+# /api/mimi -> https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/result.m3u
+[[redirects]]
+  from = "/api/mimi"
+  to = "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/result.m3u"
+  status = 200
+  force = true
+
+# /api/gather -> https://tv.iill.top/m3u/Gather
+[[redirects]]
+  from = "/api/gather"
+  to = "https://tv.iill.top/m3u/Gather"
+  status = 200
+  force = true
+
+# /api/jipin -> https://files.catbox.moe/id0n84.txt
+[[redirects]]
+  from = "/api/jipin"
+  to = "https://files.catbox.moe/id0n84.txt"
+  status = 200
+  force = true
+
+# /api/yuanbao -> https://chuxinya.top/f/DRGJH3/绿影流年.txt
+[[redirects]]
+  from = "/api/yuanbao"
+  to = "https://chuxinya.top/f/DRGJH3/绿影流年.txt"
+  status = 200
+  force = true
+
 # /api/stream/* -> http://.../sub/:splat
 [[redirects]]
   from = "/api/stream/*"
