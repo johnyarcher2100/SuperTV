@@ -985,48 +985,99 @@ body {
 /* 平板 - 兩列 */
 @media (max-width: 768px) {
     .main-content {
-        padding: 20px 10px;
+        padding: 10px 8px;
     }
 
     .channel-panel {
-        padding: 20px 15px;
+        padding: 12px 10px;
         max-width: 100%;
+        min-height: auto;
+    }
+
+    .header {
+        padding: 10px;
     }
 
     .header h1 {
-        font-size: 1.8rem;
+        font-size: 1.3rem;
     }
 
     .container {
-        padding: 10px;
+        padding: 5px;
+    }
+
+    .panel-header {
+        margin-bottom: 12px;
+        gap: 8px;
+    }
+
+    .panel-header h2 {
+        font-size: 1.1rem;
+    }
+
+    .channel-count {
+        font-size: 0.75rem;
+        padding: 4px 10px;
     }
 
     .panel-controls {
         width: 100%;
         justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
     }
 
     .search-input {
         width: 100%;
-        max-width: 300px;
+        max-width: 100%;
+        padding: 8px 12px;
+        font-size: 0.85rem;
     }
 
     .search-input:focus {
         width: 100%;
     }
 
+    .collect-btn {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+
     .category-filter {
-        gap: 8px;
+        gap: 6px;
+        margin-bottom: 10px;
     }
 
     .category-btn {
-        padding: 8px 16px;
-        font-size: 0.85rem;
+        padding: 6px 12px;
+        font-size: 0.75rem;
     }
 
     .channel-item {
-        padding: 20px 15px;
-        min-height: 90px;
+        padding: 12px 10px;
+        min-height: 70px;
+        gap: 8px;
+    }
+
+    .channel-item h3 {
+        font-size: 0.9rem;
+    }
+
+    .channel-logo-container {
+        width: 50px;
+        height: 50px;
+    }
+
+    .channel-text-icon {
+        font-size: 1.4rem;
+    }
+
+    .channel-name {
+        font-size: 0.85rem;
+    }
+
+    .channel-category {
+        font-size: 0.65rem;
     }
 
     /* Welcome overlay mobile adjustments */
@@ -1133,6 +1184,161 @@ body {
 
     .btn-primary, .btn-secondary {
         width: 100%;
+    }
+}
+
+/* iPhone 專用優化 - 極致緊湊 */
+@media (max-width: 480px) {
+    .header {
+        padding: 6px 10px;
+    }
+
+    .header h1 {
+        font-size: 1.1rem;
+    }
+
+    .reset-btn {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+    }
+
+    .main-content {
+        padding: 6px 5px;
+    }
+
+    .channel-panel {
+        padding: 8px 6px;
+        border-radius: 8px;
+    }
+
+    .panel-header {
+        margin-bottom: 8px;
+        gap: 6px;
+    }
+
+    .panel-header h2 {
+        font-size: 0.95rem;
+    }
+
+    .channel-count {
+        font-size: 0.7rem;
+        padding: 3px 8px;
+    }
+
+    .panel-controls {
+        gap: 6px;
+        margin-bottom: 8px;
+    }
+
+    .search-input {
+        padding: 6px 10px;
+        font-size: 0.8rem;
+        border-radius: 8px;
+    }
+
+    .collect-btn {
+        padding: 6px 10px;
+        font-size: 0.75rem;
+    }
+
+    .category-filter {
+        gap: 5px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+    }
+
+    .category-btn {
+        padding: 5px 10px;
+        font-size: 0.7rem;
+        border-radius: 8px;
+    }
+
+    .channel-item {
+        padding: 8px 6px;
+        min-height: 60px;
+        border-radius: 8px;
+        gap: 6px;
+    }
+
+    .channel-item h3 {
+        font-size: 0.8rem;
+    }
+
+    .channel-logo-container {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+    }
+
+    .channel-text-icon {
+        font-size: 1.2rem;
+    }
+
+    .channel-name {
+        font-size: 0.8rem;
+        -webkit-line-clamp: 2;
+    }
+
+    .channel-category {
+        font-size: 0.6rem;
+    }
+
+    /* 虛擬滾動器在 iPhone 上的優化 */
+    .virtual-scroller-viewport {
+        padding: 0;
+    }
+
+    /* Welcome overlay iPhone 優化 */
+    .welcome-overlay {
+        padding: 10px;
+    }
+
+    .welcome-content {
+        padding: 20px 15px;
+        border-radius: 20px;
+    }
+
+    .logo-section {
+        margin-bottom: 25px;
+    }
+
+    .logo-section h1 {
+        font-size: 2.2rem;
+    }
+
+    .subtitle {
+        font-size: 0.95rem;
+    }
+
+    .source-section h2 {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+    }
+
+    .source-btn {
+        padding: 14px 16px;
+    }
+
+    .btn-icon {
+        font-size: 2rem;
+        margin-right: 14px;
+        min-width: 45px;
+    }
+
+    .btn-content h3 {
+        font-size: 1rem;
+    }
+
+    .btn-content p {
+        font-size: 0.85rem;
+    }
+
+    /* 設置按鈕在 iPhone 上更小 */
+    .settings-btn {
+        bottom: 15px;
+        right: 15px;
+        padding: 10px;
+        font-size: 1.2rem;
     }
 }
 

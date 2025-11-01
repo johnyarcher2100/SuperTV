@@ -110,16 +110,47 @@ class SuperTVApp {
     initVirtualScroller() {
         const channelListContainer = document.getElementById('channel-list');
 
+        // 根據屏幕寬度決定列數和間距
+        const getResponsiveConfig = () => {
+            const width = window.innerWidth;
+            if (width <= 480) {
+                // iPhone
+                return { columns: 2, gap: 10, itemHeight: 70 };
+            } else if (width <= 768) {
+                // 平板
+                return { columns: 2, gap: 15, itemHeight: 80 };
+            } else if (width <= 1200) {
+                // 中等屏幕
+                return { columns: 3, gap: 18, itemHeight: 90 };
+            } else {
+                // 大屏幕
+                return { columns: 4, gap: 20, itemHeight: 100 };
+            }
+        };
+
+        const config = getResponsiveConfig();
+
         this.virtualScroller = new VirtualScroller({
             container: channelListContainer,
-            itemHeight: 100, // 頻道項目高度（與 CSS 保持一致）
-            columns: 4, // 默認 4 列
-            gap: 20, // 間距
+            itemHeight: config.itemHeight,
+            columns: config.columns,
+            gap: config.gap,
             overscan: 2, // 預渲染 2 行
             renderItem: (channel, index) => this.renderChannelItem(channel, index)
         });
 
-        logger.info('Virtual scroller initialized');
+        // 監聽窗口大小變化，重新配置虛擬滾動器
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                const newConfig = getResponsiveConfig();
+                this.virtualScroller.updateConfig(newConfig);
+                this.virtualScroller.updateItems(this.filteredChannels);
+            }, 250);
+        });
+
+        logger.info('Virtual scroller initialized with responsive config:', config);
     }
 
     renderChannelItem(channel, index) {

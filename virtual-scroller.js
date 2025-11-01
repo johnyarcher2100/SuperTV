@@ -305,6 +305,42 @@ class VirtualScroller {
     getTotalCount() {
         return this.items.length;
     }
+
+    // 更新配置（用於響應式調整）
+    updateConfig(newConfig) {
+        logger.debug('Updating VirtualScroller config', newConfig);
+
+        let needsUpdate = false;
+
+        if (newConfig.columns !== undefined && newConfig.columns !== this.columns) {
+            this.columns = newConfig.columns;
+            needsUpdate = true;
+        }
+
+        if (newConfig.gap !== undefined && newConfig.gap !== this.gap) {
+            this.gap = newConfig.gap;
+            needsUpdate = true;
+        }
+
+        if (newConfig.itemHeight !== undefined && newConfig.itemHeight !== this.itemHeight) {
+            this.itemHeight = newConfig.itemHeight;
+            needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+            // 重新計算總高度
+            this.calculateTotalHeight();
+
+            // 重新渲染
+            this.update();
+
+            logger.info('VirtualScroller config updated', {
+                columns: this.columns,
+                gap: this.gap,
+                itemHeight: this.itemHeight
+            });
+        }
+    }
 }
 
 export default VirtualScroller;
