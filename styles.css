@@ -437,6 +437,7 @@ body {
     flex: 1;
     overflow: hidden; /* 虛擬滾動器自己處理滾動 */
     padding: 10px;
+    min-height: 400px; /* 🔧 確保容器有最小高度 */
 }
 
 /* 虛擬滾動器視口滾動條樣式 */
@@ -993,7 +994,7 @@ body {
     .channel-panel {
         padding: 12px 10px;
         max-width: 100%;
-        min-height: auto;
+        min-height: 500px; /* 🔧 確保移動設備上有足夠高度 */
     }
 
     .header {

@@ -1412,10 +1412,18 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
             if (this.virtualScroller) {
                 // 使用 setTimeout 確保 DOM 已更新
                 setTimeout(() => {
+                    const channelList = document.getElementById('channel-list');
+                    logger.debug('📏 Channel list dimensions:', {
+                        offsetHeight: channelList.offsetHeight,
+                        clientHeight: channelList.clientHeight,
+                        scrollHeight: channelList.scrollHeight,
+                        panelHeight: panel.offsetHeight
+                    });
+
                     this.virtualScroller.updateContainerHeight();
                     this.virtualScroller.update();
                     logger.debug('Virtual scroller updated after panel shown');
-                }, 0);
+                }, 100); // 增加延遲時間確保 DOM 完全更新
             }
         }
     }
