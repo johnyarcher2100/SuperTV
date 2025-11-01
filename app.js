@@ -1,7 +1,70 @@
+// 📝 導入 Logger 工具
+import { createLogger } from './logger.js';
+
+// 🚀 導入虛擬滾動器
+import VirtualScroller from './virtual-scroller.js';
+
+// 📊 導入性能監控
+import performanceMonitor from './performance-monitor.js';
+
+// 創建 App 專用的 logger
+const logger = createLogger('SuperTVApp');
+
+// 🎯 直播源配置 - 統一管理所有直播源
+const LIVE_SOURCES = {
+    golden: {
+        name: '黃金直播源',
+        apiPath: '/api/playlist',
+        fallbackUrl: null,
+        useEmbedded: true,
+        iosWarning: true // iOS HTTPS 環境下顯示警告
+    },
+    xiaofeng: {
+        name: '曉峰直播源',
+        apiPath: '/api/xiaofeng',
+        fallbackUrl: 'http://晓峰.azip.dpdns.org:5008/?type=m3u'
+    },
+    miaokai: {
+        name: '秒開直播源',
+        apiPath: '/api/miaokai',
+        fallbackUrl: 'https://files.catbox.moe/zyat7k.m3u'
+    },
+    judy: {
+        name: 'Judy 直播源',
+        apiPath: '/api/judy',
+        fallbackUrl: 'https://files.catbox.moe/25aoli.txt'
+    },
+    laji: {
+        name: '垃圾直播源',
+        apiPath: '/api/laji',
+        fallbackUrl: 'https://files.catbox.moe/1mj29e.m3u'
+    },
+    mimi: {
+        name: '祕密直播源',
+        apiPath: '/api/mimi',
+        fallbackUrl: 'https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/result.m3u'
+    },
+    gather: {
+        name: 'Gather 直播源',
+        apiPath: '/api/gather',
+        fallbackUrl: 'https://tv.iill.top/m3u/Gather'
+    },
+    jipin: {
+        name: '極品直播源',
+        apiPath: '/api/jipin',
+        fallbackUrl: 'https://files.catbox.moe/id0n84.txt'
+    },
+    yuanbao: {
+        name: '元寶直播源',
+        apiPath: '/api/yuanbao',
+        fallbackUrl: 'https://chuxinya.top/f/DRGJH3/绿影流年.txt'
+    }
+};
+
 // Main application controller
 class SuperTVApp {
     constructor() {
-        console.log('SuperTVApp constructor called');
+        logger.debug('SuperTVApp constructor called');
         this.channelManager = null;
         this.player = null;
         this.currentChannelId = null;
@@ -10,6 +73,9 @@ class SuperTVApp {
         // 🎬 全螢幕播放器相關
         this.fullscreenPlayer = null;
         this.currentPlayingChannel = null;
+
+        // 🚀 虛擬滾動器
+        this.virtualScroller = null;
 
         this.init();
 
@@ -27,15 +93,50 @@ class SuperTVApp {
             const videoElement = document.getElementById('video-player');
             this.iptvPlayer = new IPTVPlayer(videoElement);
 
+            // 🚀 初始化虛擬滾動器
+            this.initVirtualScroller();
+
             // Setup UI
             this.setupEventListeners();
             this.setupSourceSelection();
             this.loadSettings();
 
-            console.log('SuperTV initialized successfully');
+            logger.info('SuperTV initialized successfully');
         } catch (error) {
-            console.error('Failed to initialize SuperTV:', error);
+            logger.error('Failed to initialize SuperTV:', error);
         }
+    }
+
+    initVirtualScroller() {
+        const channelListContainer = document.getElementById('channel-list');
+
+        this.virtualScroller = new VirtualScroller({
+            container: channelListContainer,
+            itemHeight: 100, // 頻道項目高度（與 CSS 保持一致）
+            columns: 4, // 默認 4 列
+            gap: 20, // 間距
+            overscan: 2, // 預渲染 2 行
+            renderItem: (channel, index) => this.renderChannelItem(channel, index)
+        });
+
+        logger.info('Virtual scroller initialized');
+    }
+
+    renderChannelItem(channel, index) {
+        const channelItem = document.createElement('div');
+        channelItem.className = 'channel-item';
+        channelItem.dataset.channelId = channel.id;
+
+        // 添加選中狀態
+        if (this.currentChannelId === channel.id) {
+            channelItem.classList.add('active');
+        }
+
+        channelItem.innerHTML = `
+            <div class="channel-name">${channel.name}</div>
+        `;
+
+        return channelItem;
     }
 
     setupEventListeners() {
@@ -49,7 +150,7 @@ class SuperTVApp {
         const resetBtn = document.getElementById('reset-btn');
         if (resetBtn) {
             resetBtn.addEventListener('click', () => {
-                console.log('Reset button clicked - returning to welcome page');
+                logger.debug('Reset button clicked - returning to welcome page');
                 this.resetToWelcomePage();
             });
         }
@@ -142,10 +243,10 @@ class SuperTVApp {
                 if (video) {
                     video.muted = false;
                     video.play().then(() => {
-                        console.log('✅ User initiated playback successful');
+                        logger.debug('✅ User initiated playback successful');
                         fullscreenPlayOverlay.classList.add('hidden');
                     }).catch(error => {
-                        console.error('❌ User initiated playback failed:', error);
+                        logger.error('❌ User initiated playback failed:', error);
                     });
                 }
             };
@@ -269,47 +370,47 @@ class SuperTVApp {
     }
 
     setupSourceSelection() {
-        console.log('Setting up source selection...');
+        logger.debug('Setting up source selection...');
 
         // Golden source button
         const goldenBtn = document.getElementById('load-golden-source');
         if (goldenBtn) {
-            console.log('Golden source button found, adding event listener');
+            logger.debug('Golden source button found, adding event listener');
             goldenBtn.addEventListener('click', () => {
-                console.log('Golden source button clicked');
+                logger.debug('Golden source button clicked');
                 this.loadGoldenSource();
             });
         } else {
-            console.error('Golden source button not found');
+            logger.error('Golden source button not found');
         }
 
         // 曉峰直播源 button
         const xiaofengBtn = document.getElementById('load-xiaofeng-source');
         if (xiaofengBtn) {
             xiaofengBtn.addEventListener('click', () => {
-                console.log('曉峰直播源 button clicked');
+                logger.debug('曉峰直播源 button clicked');
                 this.loadXiaofengSource();
             });
         } else {
-            console.error('曉峰直播源 button not found');
+            logger.error('曉峰直播源 button not found');
         }
 
         // 秒開直播源 button
         const miaokaiBtn = document.getElementById('load-miaokai-source');
         if (miaokaiBtn) {
             miaokaiBtn.addEventListener('click', () => {
-                console.log('秒開直播源 button clicked');
+                logger.debug('秒開直播源 button clicked');
                 this.loadMiaokaiSource();
             });
         } else {
-            console.error('秒開直播源 button not found');
+            logger.error('秒開直播源 button not found');
         }
 
         // Judy 直播源 button
         const judyBtn = document.getElementById('load-judy-source');
         if (judyBtn) {
             judyBtn.addEventListener('click', () => {
-                console.log('Judy 直播源 button clicked');
+                logger.debug('Judy 直播源 button clicked');
                 this.loadJudySource();
             });
         }
@@ -318,7 +419,7 @@ class SuperTVApp {
         const lajiBtn = document.getElementById('load-laji-source');
         if (lajiBtn) {
             lajiBtn.addEventListener('click', () => {
-                console.log('垃圾直播源 button clicked');
+                logger.debug('垃圾直播源 button clicked');
                 this.loadLajiSource();
             });
         }
@@ -327,7 +428,7 @@ class SuperTVApp {
         const mimiBtn = document.getElementById('load-mimi-source');
         if (mimiBtn) {
             mimiBtn.addEventListener('click', () => {
-                console.log('祕密直播源 button clicked');
+                logger.debug('祕密直播源 button clicked');
                 this.loadMimiSource();
             });
         }
@@ -336,7 +437,7 @@ class SuperTVApp {
         const gatherBtn = document.getElementById('load-gather-source');
         if (gatherBtn) {
             gatherBtn.addEventListener('click', () => {
-                console.log('Gather 直播源 button clicked');
+                logger.debug('Gather 直播源 button clicked');
                 this.loadGatherSource();
             });
         }
@@ -345,7 +446,7 @@ class SuperTVApp {
         const jipinBtn = document.getElementById('load-jipin-source');
         if (jipinBtn) {
             jipinBtn.addEventListener('click', () => {
-                console.log('極品直播源 button clicked');
+                logger.debug('極品直播源 button clicked');
                 this.loadJipinSource();
             });
         }
@@ -354,7 +455,7 @@ class SuperTVApp {
         const yuanbaoBtn = document.getElementById('load-yuanbao-source');
         if (yuanbaoBtn) {
             yuanbaoBtn.addEventListener('click', () => {
-                console.log('元寶直播源 button clicked');
+                logger.debug('元寶直播源 button clicked');
                 this.loadYuanbaoSource();
             });
         }
@@ -363,7 +464,7 @@ class SuperTVApp {
         const customBtn = document.getElementById('load-custom-playlist');
         if (customBtn) {
             customBtn.addEventListener('click', () => {
-                console.log('Custom playlist button clicked');
+                logger.debug('Custom playlist button clicked');
                 this.showCustomSourceModal();
             });
         }
@@ -372,7 +473,7 @@ class SuperTVApp {
         const urlBtn = document.getElementById('load-direct-url');
         if (urlBtn) {
             urlBtn.addEventListener('click', () => {
-                console.log('Direct URL button clicked');
+                logger.debug('Direct URL button clicked');
                 this.showUrlSourceModal();
             });
         }
@@ -438,7 +539,7 @@ class SuperTVApp {
             } else {
                 this.player.play().then(() => {
                     this.updatePlayPauseButton(true);
-                }).catch(console.error);
+                }).catch(err => logger.error('Play failed:', err));
             }
         });
 
@@ -504,51 +605,85 @@ class SuperTVApp {
         });
     }
 
-    async loadGoldenSource() {
-        try {
-            // 檢測是否為 iOS 且在 HTTPS 環境
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isHTTPS = window.location.protocol === 'https:';
+    /**
+     * 🚀 統一的直播源載入函數
+     * 替代所有重複的 loadXXXSource() 函數
+     * @param {string} sourceKey - 直播源鍵值（對應 LIVE_SOURCES）
+     */
+    async loadSource(sourceKey) {
+        const config = LIVE_SOURCES[sourceKey];
 
-            if (isIOS && isHTTPS) {
-                // iOS 在 HTTPS 環境下無法使用黃金直播源（私有 IP 問題）
-                this.hideLoading();
-                this.showError(
-                    '⚠️ 黃金直播源在 iOS 上暫不可用\n\n' +
-                    '原因：該直播源使用私有伺服器，無法在雲端環境訪問。\n\n' +
-                    '請使用以下替代方案：\n' +
-                    '✅ 秒開直播源（推薦）\n' +
-                    '✅ Judy 直播源\n' +
-                    '✅ 曉峰直播源\n' +
-                    '✅ Gather 直播源'
-                );
-                return;
+        if (!config) {
+            logger.error(`Unknown source: ${sourceKey}`);
+            this.showError(`未知的直播源: ${sourceKey}`);
+            return;
+        }
+
+        try {
+            // 檢查 iOS HTTPS 警告
+            if (config.iosWarning) {
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                const isHTTPS = window.location.protocol === 'https:';
+
+                if (isIOS && isHTTPS) {
+                    this.hideLoading();
+                    this.showError(
+                        `⚠️ ${config.name}在 iOS 上暫不可用\n\n` +
+                        '原因：該直播源使用私有伺服器，無法在雲端環境訪問。\n\n' +
+                        '請使用以下替代方案：\n' +
+                        '✅ 秒開直播源（推薦）\n' +
+                        '✅ Judy 直播源\n' +
+                        '✅ 曉峰直播源\n' +
+                        '✅ Gather 直播源'
+                    );
+                    return;
+                }
             }
 
-            // Show loading
-            this.showLoading('載入黃金直播源...');
+            // 顯示載入中
+            this.showLoading(`載入${config.name}...`);
 
             let playlistText;
 
             try {
-                // Try to fetch from proxy first
-                const response = await fetch('/api/playlist');
+                // 嘗試從代理獲取
+                const response = await fetch(config.apiPath);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 playlistText = await response.text();
             } catch (proxyError) {
-                console.log('Proxy failed, using embedded data:', proxyError);
-                // Fallback to embedded data
-                playlistText = this.getEmbeddedGoldenSource();
+                logger.debug(`Proxy failed for ${config.name}, trying fallback:`, proxyError);
+
+                // 使用內嵌數據（僅黃金直播源）
+                if (config.useEmbedded) {
+                    playlistText = this.getEmbeddedGoldenSource();
+                }
+                // 使用備用 URL
+                else if (config.fallbackUrl) {
+                    const response = await fetch(config.fallbackUrl);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    playlistText = await response.text();
+                } else {
+                    throw proxyError;
+                }
             }
 
-            this.processPlaylistText(playlistText);
+            // 處理播放清單
+            this.processPlaylistText(playlistText, config.name);
+
         } catch (error) {
-            console.error('Failed to load golden source:', error);
+            logger.error(`Failed to load ${config.name}:`, error);
             this.hideLoading();
-            this.showError(`載入黃金直播源失敗: ${error.message}`);
+            this.showError(`載入${config.name}失敗: ${error.message}`);
         }
+    }
+
+    // 🔄 保留舊函數以保持向後兼容，但使用新的統一函數
+    async loadGoldenSource() {
+        return this.loadSource('golden');
     }
 
     getEmbeddedGoldenSource() {
@@ -629,241 +764,39 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
     }
 
     async loadXiaofengSource() {
-        try {
-            // Show loading
-            this.showLoading('載入曉峰直播源...');
-
-            let playlistText;
-
-            try {
-                // Try to fetch from proxy first
-                const response = await fetch('/api/xiaofeng');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            } catch (proxyError) {
-                console.log('Proxy failed, trying direct connection:', proxyError);
-                // Fallback to direct connection
-                const response = await fetch('http://晓峰.azip.dpdns.org:5008/?type=m3u');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            }
-
-            // Process the playlist with custom source name
-            this.processPlaylistText(playlistText, '曉峰直播源');
-        } catch (error) {
-            console.error('Failed to load 曉峰直播源:', error);
-            this.hideLoading();
-            this.showError(`載入曉峰直播源失敗: ${error.message}`);
-        }
+        return this.loadSource('xiaofeng');
     }
 
     async loadMiaokaiSource() {
-        try {
-            // Show loading
-            this.showLoading('載入秒開直播源...');
-
-            let playlistText;
-
-            try {
-                // Try to fetch from proxy first
-                const response = await fetch('/api/miaokai');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            } catch (proxyError) {
-                console.log('Proxy failed, trying direct connection:', proxyError);
-                // Fallback to direct connection
-                const response = await fetch('https://files.catbox.moe/zyat7k.m3u');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            }
-
-            // Process the playlist with custom source name
-            this.processPlaylistText(playlistText, '秒開直播源');
-        } catch (error) {
-            console.error('Failed to load 秒開直播源:', error);
-            this.hideLoading();
-            this.showError(`載入秒開直播源失敗: ${error.message}`);
-        }
+        return this.loadSource('miaokai');
     }
 
     async loadJudySource() {
-        try {
-            this.showLoading('載入 Judy 直播源...');
-            let playlistText;
-
-            try {
-                const response = await fetch('/api/judy');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            } catch (proxyError) {
-                console.log('Proxy failed, trying direct connection:', proxyError);
-                const response = await fetch('https://files.catbox.moe/25aoli.txt');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            }
-
-            this.processPlaylistText(playlistText, 'Judy 直播源');
-        } catch (error) {
-            console.error('Failed to load Judy 直播源:', error);
-            this.hideLoading();
-            this.showError(`載入 Judy 直播源失敗: ${error.message}`);
-        }
+        return this.loadSource('judy');
     }
 
     async loadLajiSource() {
-        try {
-            this.showLoading('載入垃圾直播源...');
-            let playlistText;
-
-            try {
-                const response = await fetch('/api/laji');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            } catch (proxyError) {
-                console.log('Proxy failed, trying direct connection:', proxyError);
-                const response = await fetch('https://files.catbox.moe/1mj29e.m3u');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            }
-
-            this.processPlaylistText(playlistText, '垃圾直播源');
-        } catch (error) {
-            console.error('Failed to load 垃圾直播源:', error);
-            this.hideLoading();
-            this.showError(`載入垃圾直播源失敗: ${error.message}`);
-        }
+        return this.loadSource('laji');
     }
 
     async loadMimiSource() {
-        try {
-            this.showLoading('載入祕密直播源...');
-            let playlistText;
-
-            try {
-                const response = await fetch('/api/mimi');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            } catch (proxyError) {
-                console.log('Proxy failed, trying direct connection:', proxyError);
-                const response = await fetch('https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/result.m3u');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            }
-
-            this.processPlaylistText(playlistText, '祕密直播源');
-        } catch (error) {
-            console.error('Failed to load 祕密直播源:', error);
-            this.hideLoading();
-            this.showError(`載入祕密直播源失敗: ${error.message}`);
-        }
+        return this.loadSource('mimi');
     }
 
     async loadGatherSource() {
-        try {
-            this.showLoading('載入 Gather 直播源...');
-            let playlistText;
-
-            try {
-                const response = await fetch('/api/gather');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            } catch (proxyError) {
-                console.log('Proxy failed, trying direct connection:', proxyError);
-                const response = await fetch('https://tv.iill.top/m3u/Gather');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            }
-
-            this.processPlaylistText(playlistText, 'Gather 直播源');
-        } catch (error) {
-            console.error('Failed to load Gather 直播源:', error);
-            this.hideLoading();
-            this.showError(`載入 Gather 直播源失敗: ${error.message}`);
-        }
+        return this.loadSource('gather');
     }
 
     async loadJipinSource() {
-        try {
-            this.showLoading('載入極品直播源...');
-            let playlistText;
-
-            try {
-                const response = await fetch('/api/jipin');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            } catch (proxyError) {
-                console.log('Proxy failed, trying direct connection:', proxyError);
-                const response = await fetch('https://files.catbox.moe/id0n84.txt');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            }
-
-            this.processPlaylistText(playlistText, '極品直播源');
-        } catch (error) {
-            console.error('Failed to load 極品直播源:', error);
-            this.hideLoading();
-            this.showError(`載入極品直播源失敗: ${error.message}`);
-        }
+        return this.loadSource('jipin');
     }
 
     async loadYuanbaoSource() {
-        try {
-            this.showLoading('載入元寶直播源...');
-            let playlistText;
-
-            try {
-                const response = await fetch('/api/yuanbao');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            } catch (proxyError) {
-                console.log('Proxy failed, trying direct connection:', proxyError);
-                const response = await fetch('https://chuxinya.top/f/DRGJH3/绿影流年.txt');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                playlistText = await response.text();
-            }
-
-            this.processPlaylistText(playlistText, '元寶直播源');
-        } catch (error) {
-            console.error('Failed to load 元寶直播源:', error);
-            this.hideLoading();
-            this.showError(`載入元寶直播源失敗: ${error.message}`);
-        }
+        return this.loadSource('yuanbao');
     }
 
     processPlaylistText(playlistText, sourceName = '黃金直播源') {
-        console.log('Processing playlist text:', playlistText.substring(0, 200) + '...');
+        logger.debug('Processing playlist text:', playlistText.substring(0, 200) + '...');
 
         // Initialize channel manager with the data
         this.channelManager = new ChannelManager();
@@ -885,14 +818,14 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         // Update UI with success message
         this.updatePlayerInfo(sourceName, `已載入 ${this.channelManager.channels.length} 個頻道`);
 
-        console.log(`${sourceName} loaded successfully: ${this.channelManager.channels.length} channels`);
+        logger.debug(`${sourceName} loaded successfully: ${this.channelManager.channels.length} channels`);
 
         // 💾 保存頻道列表狀態，以便用戶返回時能看到
         this.saveChannelListState();
     }
 
     setupChannelEventListeners() {
-        // Channel selection
+        // Channel selection - 使用事件委託（因為虛擬滾動器動態創建元素）
         document.getElementById('channel-list').addEventListener('click', (e) => {
             const channelItem = e.target.closest('.channel-item');
             if (channelItem) {
@@ -922,15 +855,21 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
     }
 
     async selectChannel(channelId) {
+        // 📊 開始計時頻道切換
+        performanceMonitor.startMark('channelSwitch');
+
         const channel = this.channelManager.getChannelById(channelId);
-        console.log('Selecting channel:', channelId, channel);
+        logger.debug('Selecting channel:', channelId, channel);
 
         if (!channel) {
-            console.error('Channel not found:', channelId);
+            logger.error('Channel not found:', channelId);
             return;
         }
 
-        console.log('🎬 Opening channel in fullscreen player view:', channel);
+        // 更新當前頻道 ID（用於虛擬滾動器高亮）
+        this.currentChannelId = channelId;
+
+        logger.debug('🎬 Opening channel in fullscreen player view:', channel);
 
         // 使用全螢幕播放視圖（新方法）
         this.showFullscreenPlayer(channel);
@@ -938,7 +877,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
 
     // 🎬 新增：顯示全螢幕播放器
     showFullscreenPlayer(channel) {
-        console.log('📺 Showing fullscreen player for:', channel.name);
+        logger.debug('📺 Showing fullscreen player for:', channel.name);
 
         // 顯示全螢幕播放視圖
         const playerView = document.getElementById('fullscreen-player-view');
@@ -969,8 +908,14 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         // 載入串流
         this.fullscreenPlayer.loadStream(channel.url)
             .then(() => {
-                console.log('✅ Channel loaded successfully in fullscreen player');
+                logger.debug('✅ Channel loaded successfully in fullscreen player');
                 loadingIndicator.classList.add('hidden');
+
+                // 📊 結束計時並記錄頻道切換時間
+                const switchDuration = performanceMonitor.endMark('channelSwitch');
+                if (switchDuration !== null) {
+                    performanceMonitor.recordChannelSwitch(switchDuration, channel.name);
+                }
 
                 // 檢查視頻是否正在播放，如果沒有則顯示播放按鈕
                 setTimeout(() => {
@@ -979,7 +924,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
 
                     if (video.paused && video.readyState >= 2) {
                         // 視頻已載入但未播放（可能被瀏覽器阻止自動播放）
-                        console.log('💡 Video loaded but not playing, showing play button');
+                        logger.debug('💡 Video loaded but not playing, showing play button');
                         if (playOverlay) {
                             playOverlay.classList.remove('hidden');
                         }
@@ -990,7 +935,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
                 }, 2000);
             })
             .catch(error => {
-                console.error('❌ Failed to load channel in fullscreen player:', error);
+                logger.error('❌ Failed to load channel in fullscreen player:', error);
                 loadingIndicator.classList.add('hidden');
                 errorMessage.classList.remove('hidden');
 
@@ -1071,7 +1016,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
 
     // 🎬 新增：隱藏全螢幕播放器
     hideFullscreenPlayer() {
-        console.log('🔙 Hiding fullscreen player');
+        logger.debug('🔙 Hiding fullscreen player');
 
         // 隱藏全螢幕播放視圖
         const playerView = document.getElementById('fullscreen-player-view');
@@ -1243,7 +1188,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
 
     // 保留舊方法以防其他地方使用（標記為已棄用）
     openPlayerPage(channel) {
-        console.warn('⚠️ openPlayerPage is deprecated, use showFullscreenPlayer instead');
+        logger.warn('⚠️ openPlayerPage is deprecated, use showFullscreenPlayer instead');
         this.showFullscreenPlayer(channel);
     }
 
@@ -1319,7 +1264,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
             const text = await file.text();
             await this.parseAndLoadPlaylist(text, file.name);
         } catch (error) {
-            console.error('Failed to load playlist file:', error);
+            logger.error('Failed to load playlist file:', error);
             this.showError('載入播放清單檔案失敗');
         }
     }
@@ -1331,7 +1276,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
             const text = await response.text();
             await this.parseAndLoadPlaylist(text, 'Custom Playlist');
         } catch (error) {
-            console.error('Failed to load playlist URL:', error);
+            logger.error('Failed to load playlist URL:', error);
             this.showError('載入播放清單網址失敗');
         }
     }
@@ -1354,9 +1299,9 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
             this.renderCategoryButtons();
 
             this.hideLoading();
-            console.log('Custom playlist loaded successfully');
+            logger.debug('Custom playlist loaded successfully');
         } catch (error) {
-            console.error('Failed to parse playlist:', error);
+            logger.error('Failed to parse playlist:', error);
             this.showError('播放清單格式錯誤');
             this.hideLoading();
         }
@@ -1392,9 +1337,9 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
             await this.player.loadChannel(channel);
             this.currentChannelId = 1;
 
-            console.log(`Direct URL loaded: ${name}`);
+            logger.debug(`Direct URL loaded: ${name}`);
         } catch (error) {
-            console.error('Failed to play direct URL:', error);
+            logger.error('Failed to play direct URL:', error);
             this.showError('無法播放此網址');
         }
     }
@@ -1403,7 +1348,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         const overlay = document.getElementById('welcome-overlay');
         if (overlay) {
             overlay.classList.add('hidden');
-            console.log('Welcome overlay hidden - showing channel selection');
+            logger.debug('Welcome overlay hidden - showing channel selection');
         }
     }
 
@@ -1411,7 +1356,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         const overlay = document.getElementById('welcome-overlay');
         if (overlay) {
             overlay.classList.remove('hidden');
-            console.log('Welcome overlay shown - user can select source');
+            logger.debug('Welcome overlay shown - user can select source');
         }
     }
 
@@ -1430,7 +1375,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
     }
 
     resetToWelcomePage() {
-        console.log('Resetting to welcome page...');
+        logger.debug('Resetting to welcome page...');
 
         // 停止當前播放
         if (this.player) {
@@ -1456,7 +1401,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
             statusElement.textContent = '多種直播源可選';
         }
 
-        console.log('Returned to welcome page - ready to select new source');
+        logger.debug('Returned to welcome page - ready to select new source');
     }
 
     showLoading(message = '載入中...') {
@@ -1493,7 +1438,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
     }
 
     async testPlayback() {
-        console.log('Testing playback...');
+        logger.debug('Testing playback...');
 
         // Test with a simple channel
         const testChannel = {
@@ -1506,46 +1451,46 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
 
         try {
             await this.player.loadChannel(testChannel);
-            console.log('Test playback successful');
+            logger.debug('Test playback successful');
         } catch (error) {
-            console.error('Test playback failed:', error);
+            logger.error('Test playback failed:', error);
             alert(`測試播放失敗: ${error.message}`);
         }
     }
 
     forcePlay() {
         const video = document.getElementById('video-player');
-        console.log('Force playing video...');
+        logger.debug('Force playing video...');
 
         video.muted = false;
         video.play().then(() => {
-            console.log('Force play successful');
+            logger.debug('Force play successful');
             // 強制刷新視頻
             this.player.forceVideoRefresh();
         }).catch(error => {
-            console.error('Force play failed:', error);
+            logger.error('Force play failed:', error);
             alert(`強制播放失敗: ${error.message}`);
         });
     }
 
     checkVideoStatus() {
         const video = document.getElementById('video-player');
-        console.log('=== Video Status Check ===');
-        console.log('Video src:', video.src);
-        console.log('Video current src:', video.currentSrc);
-        console.log('Video ready state:', video.readyState);
-        console.log('Video network state:', video.networkState);
-        console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-        console.log('Video duration:', video.duration);
-        console.log('Video current time:', video.currentTime);
-        console.log('Video paused:', video.paused);
-        console.log('Video muted:', video.muted);
-        console.log('Video volume:', video.volume);
-        console.log('Video tracks:', video.videoTracks?.length || 0);
-        console.log('Audio tracks:', video.audioTracks?.length || 0);
+        logger.debug('=== Video Status Check ===');
+        logger.debug('Video src:', video.src);
+        logger.debug('Video current src:', video.currentSrc);
+        logger.debug('Video ready state:', video.readyState);
+        logger.debug('Video network state:', video.networkState);
+        logger.debug('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+        logger.debug('Video duration:', video.duration);
+        logger.debug('Video current time:', video.currentTime);
+        logger.debug('Video paused:', video.paused);
+        logger.debug('Video muted:', video.muted);
+        logger.debug('Video volume:', video.volume);
+        logger.debug('Video tracks:', video.videoTracks?.length || 0);
+        logger.debug('Audio tracks:', video.audioTracks?.length || 0);
 
         // 編解碼器支援檢測
-        console.log('=== Codec Support Check ===');
+        logger.debug('=== Codec Support Check ===');
         const codecs = [
             'video/mp4; codecs="avc1.42E01E"', // H.264 Baseline
             'video/mp4; codecs="avc1.4D401E"', // H.264 Main
@@ -1557,19 +1502,19 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
 
         codecs.forEach(codec => {
             const support = video.canPlayType(codec);
-            console.log(`${codec}: ${support}`);
+            logger.debug(`${codec}: ${support}`);
         });
 
-        console.log('HLS.js supported:', typeof Hls !== 'undefined' && Hls.isSupported());
-        console.log('User Agent:', navigator.userAgent);
-        console.log('=========================');
+        logger.debug('HLS.js supported:', typeof Hls !== 'undefined' && Hls.isSupported());
+        logger.debug('User Agent:', navigator.userAgent);
+        logger.debug('=========================');
 
         const codecInfo = codecs.map(codec => `${codec}: ${video.canPlayType(codec)}`).join('\n');
         alert(`視頻狀態:\n尺寸: ${video.videoWidth}x${video.videoHeight}\n就緒狀態: ${video.readyState}\n播放中: ${!video.paused}\n\n編解碼器支援:\n${codecInfo}`);
     }
 
     async testIPTVPlayer() {
-        console.log('Testing professional IPTV player...');
+        logger.debug('Testing professional IPTV player...');
 
         // 首先檢查視頻元素狀態
         this.checkVideoElementVisibility();
@@ -1582,10 +1527,10 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
 
         try {
             await iptvPlayer.loadStream(testUrl);
-            console.log('IPTV Player test successful');
+            logger.debug('IPTV Player test successful');
             alert('IPTV 播放器測試成功！');
         } catch (error) {
-            console.error('IPTV Player test failed:', error);
+            logger.error('IPTV Player test failed:', error);
             alert(`IPTV 播放器測試失敗: ${error.message}`);
         }
     }
@@ -1595,37 +1540,37 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         const container = document.querySelector('.video-container');
         const overlay = document.getElementById('welcome-overlay');
 
-        console.log('=== Video Element Visibility Check ===');
-        console.log('Video element:', video);
-        console.log('Video container:', container);
-        console.log('Welcome overlay:', overlay);
+        logger.debug('=== Video Element Visibility Check ===');
+        logger.debug('Video element:', video);
+        logger.debug('Video container:', container);
+        logger.debug('Welcome overlay:', overlay);
 
         if (video) {
             const rect = video.getBoundingClientRect();
             const style = getComputedStyle(video);
-            console.log('Video position:', rect);
-            console.log('Video display:', style.display);
-            console.log('Video visibility:', style.visibility);
-            console.log('Video opacity:', style.opacity);
-            console.log('Video z-index:', style.zIndex);
+            logger.debug('Video position:', rect);
+            logger.debug('Video display:', style.display);
+            logger.debug('Video visibility:', style.visibility);
+            logger.debug('Video opacity:', style.opacity);
+            logger.debug('Video z-index:', style.zIndex);
         }
 
         if (container) {
             const rect = container.getBoundingClientRect();
             const style = getComputedStyle(container);
-            console.log('Container position:', rect);
-            console.log('Container display:', style.display);
-            console.log('Container z-index:', style.zIndex);
+            logger.debug('Container position:', rect);
+            logger.debug('Container display:', style.display);
+            logger.debug('Container z-index:', style.zIndex);
         }
 
         if (overlay) {
             const style = getComputedStyle(overlay);
-            console.log('Overlay display:', style.display);
-            console.log('Overlay z-index:', style.zIndex);
-            console.log('Overlay has hidden class:', overlay.classList.contains('hidden'));
+            logger.debug('Overlay display:', style.display);
+            logger.debug('Overlay z-index:', style.zIndex);
+            logger.debug('Overlay has hidden class:', overlay.classList.contains('hidden'));
         }
 
-        console.log('=====================================');
+        logger.debug('=====================================');
     }
 
     // 🔄 檢查並恢復頻道列表狀態
@@ -1635,7 +1580,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         const savedChannelListState = localStorage.getItem('supertv_channel_list_visible');
 
         if (savedChannels && savedChannelListState === 'true') {
-            console.log('Restoring channel list from previous session');
+            logger.debug('Restoring channel list from previous session');
 
             try {
                 const channelsData = JSON.parse(savedChannels);
@@ -1655,10 +1600,10 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
                 this.renderChannelList();
                 this.renderCategoryButtons();
 
-                console.log(`Restored ${channelsData.length} channels from previous session`);
+                logger.debug(`Restored ${channelsData.length} channels from previous session`);
 
             } catch (error) {
-                console.error('Failed to restore channel list:', error);
+                logger.error('Failed to restore channel list:', error);
                 // 清除損壞的數據
                 localStorage.removeItem('supertv_channels');
                 localStorage.removeItem('supertv_channel_list_visible');
@@ -1671,7 +1616,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         if (this.channelManager && this.channelManager.channels) {
             localStorage.setItem('supertv_channels', JSON.stringify(this.channelManager.channels));
             localStorage.setItem('supertv_channel_list_visible', 'true');
-            console.log('Channel list state saved');
+            logger.debug('Channel list state saved');
         }
     }
 
@@ -1679,7 +1624,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
     clearChannelListState() {
         localStorage.removeItem('supertv_channels');
         localStorage.removeItem('supertv_channel_list_visible');
-        console.log('Channel list state cleared');
+        logger.debug('Channel list state cleared');
     }
 
     debugContainerSizes() {
@@ -1690,13 +1635,13 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
             'welcome-overlay': document.getElementById('welcome-overlay')
         };
 
-        console.log('=== Container Size Debug ===');
+        logger.debug('=== Container Size Debug ===');
 
         Object.entries(elements).forEach(([name, element]) => {
             if (element) {
                 const rect = element.getBoundingClientRect();
                 const style = getComputedStyle(element);
-                console.log(`${name}:`, {
+                logger.debug(`${name}:`, {
                     width: rect.width,
                     height: rect.height,
                     display: style.display,
@@ -1706,22 +1651,22 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
                     position: style.position
                 });
             } else {
-                console.log(`${name}: NOT FOUND`);
+                logger.debug(`${name}: NOT FOUND`);
             }
         });
 
-        console.log('============================');
+        logger.debug('============================');
     }
 
     fixVideoDisplay() {
-        console.log('Attempting to fix video display...');
+        logger.debug('Attempting to fix video display...');
 
         // 強制隱藏 welcome overlay
         const overlay = document.getElementById('welcome-overlay');
         if (overlay) {
             overlay.style.display = 'none';
             overlay.classList.add('hidden');
-            console.log('Welcome overlay forcibly hidden');
+            logger.debug('Welcome overlay forcibly hidden');
         }
 
         // 確保視頻容器可見
@@ -1731,7 +1676,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
             container.style.visibility = 'visible';
             container.style.opacity = '1';
             container.style.zIndex = '1';
-            console.log('Video container made visible');
+            logger.debug('Video container made visible');
         }
 
         // 確保視頻元素可見
@@ -1741,20 +1686,20 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
             video.style.visibility = 'visible';
             video.style.opacity = '1';
             video.style.zIndex = '1';
-            console.log('Video element made visible');
+            logger.debug('Video element made visible');
         }
 
         // 移除任何可能的遮擋元素
         const loadingIndicator = document.querySelector('.loading-indicator');
         if (loadingIndicator) {
             loadingIndicator.style.display = 'none';
-            console.log('Loading indicator hidden');
+            logger.debug('Loading indicator hidden');
         }
 
         const errorMessage = document.querySelector('.error-message');
         if (errorMessage) {
             errorMessage.style.display = 'none';
-            console.log('Error message hidden');
+            logger.debug('Error message hidden');
         }
 
         // 檢查修復後的狀態
@@ -1764,30 +1709,23 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
     }
 
     renderChannelList() {
-        if (!this.channelManager) return;
+        if (!this.channelManager || !this.virtualScroller) return;
 
-        const channelList = document.getElementById('channel-list');
         const channels = this.channelManager.getChannels();
 
-        channelList.innerHTML = '';
-
-        channels.forEach(channel => {
-            const channelItem = document.createElement('div');
-            channelItem.className = 'channel-item';
-            channelItem.dataset.channelId = channel.id;
-
-            channelItem.innerHTML = `
-                <div class="channel-name">${channel.name}</div>
-            `;
-
-            channelList.appendChild(channelItem);
-        });
+        // 🚀 使用虛擬滾動器渲染頻道列表
+        this.virtualScroller.setItems(channels);
 
         // Update channel count
         const countElement = document.getElementById('channel-count');
         if (countElement) {
             countElement.textContent = `${channels.length} 個頻道`;
         }
+
+        logger.debug('Channel list rendered with virtual scroller', {
+            total: channels.length,
+            visible: this.virtualScroller.getVisibleCount()
+        });
     }
 
     renderCategoryButtons() {
@@ -1842,11 +1780,11 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
 
     toggleFullscreen() {
         const videoContainer = document.querySelector('.video-container');
-        
+
         if (!document.fullscreenElement) {
-            videoContainer.requestFullscreen().catch(console.error);
+            videoContainer.requestFullscreen().catch(err => logger.error('Fullscreen request failed:', err));
         } else {
-            document.exitFullscreen().catch(console.error);
+            document.exitFullscreen().catch(err => logger.error('Exit fullscreen failed:', err));
         }
     }
 
@@ -1912,7 +1850,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         if (debugButtons) {
             const isVisible = debugButtons.style.display !== 'none';
             debugButtons.style.display = isVisible ? 'none' : 'flex';
-            console.log('Debug buttons:', isVisible ? 'hidden' : 'shown');
+            logger.debug('Debug buttons:', isVisible ? 'hidden' : 'shown');
         }
     }
 

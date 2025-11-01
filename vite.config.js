@@ -234,6 +234,7 @@ export default defineConfig({
   
   // CSS 配置
   css: {
-    devSourcemap: true
+    devSourcemap: true,
+    postcss: './postcss.config.js'
   }
 })

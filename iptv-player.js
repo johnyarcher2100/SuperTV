@@ -1,9 +1,49 @@
-// Import HLS.js from npm package
-import Hls from 'hls.js';
+// ⚡ HLS.js 將延遲載入以提升首頁載入速度
+// import Hls from 'hls.js'; // 移除靜態導入
 import { createLogger } from './logger.js';
+import performanceMonitor from './performance-monitor.js';
 
 // Create logger instance for IPTV Player
 const logger = createLogger('IPTVPlayer');
+
+// 🚀 HLS.js 動態載入管理
+let HlsClass = null;
+let hlsLoadPromise = null;
+
+/**
+ * 延遲載入 HLS.js
+ * 只在需要時才載入，減少初始 bundle 大小
+ */
+async function loadHls() {
+    if (HlsClass) {
+        return HlsClass;
+    }
+
+    if (hlsLoadPromise) {
+        return hlsLoadPromise;
+    }
+
+    // 📊 開始計時 HLS.js 載入
+    const startTime = performance.now();
+
+    logger.debug('⚡ IPTV Player: Loading HLS.js dynamically...');
+    hlsLoadPromise = import('hls.js').then(module => {
+        HlsClass = module.default;
+
+        // 📊 記錄 HLS.js 載入時間
+        const loadDuration = performance.now() - startTime;
+        performanceMonitor.recordHlsLoad(loadDuration);
+
+        logger.debug('✅ IPTV Player: HLS.js loaded successfully');
+        return HlsClass;
+    }).catch(error => {
+        logger.error('❌ IPTV Player: Failed to load HLS.js:', error);
+        hlsLoadPromise = null;
+        throw error;
+    });
+
+    return hlsLoadPromise;
+}
 
 /**
  * 🎯 代理配置 - 處理 CORS 和混合內容問題
@@ -65,7 +105,7 @@ const PROXY_CONFIG = {
 
         if (!this.needsProxy(url)) return url;
 
-        console.log('🔄 Using proxy for:', url);
+        logger.debug('🔄 Using proxy for:', url);
 
         // 在開發環境使用 Vite 代理，生產環境使用 Netlify Functions
         if (typeof window !== 'undefined') {
@@ -131,14 +171,14 @@ class IPTVPlayer {
         this.video.addEventListener('waiting', () => {
             this.performanceMetrics.bufferingEvents++;
             this.performanceMetrics.lastBufferTime = Date.now();
-            console.log('📊 Performance: Buffering event #' + this.performanceMetrics.bufferingEvents);
+            logger.debug('📊 Performance: Buffering event #' + this.performanceMetrics.bufferingEvents);
         });
 
         this.video.addEventListener('playing', () => {
             if (this.performanceMetrics.lastBufferTime > 0) {
                 const bufferDuration = Date.now() - this.performanceMetrics.lastBufferTime;
                 this.performanceMetrics.totalBufferTime += bufferDuration;
-                console.log(`📊 Performance: Buffering resolved in ${bufferDuration}ms`);
+                logger.debug(`📊 Performance: Buffering resolved in ${bufferDuration}ms`);
                 this.performanceMetrics.lastBufferTime = 0;
             }
         });
@@ -146,7 +186,7 @@ class IPTVPlayer {
         // 監控卡頓事件
         this.video.addEventListener('stalled', () => {
             this.performanceMetrics.stallEvents++;
-            console.warn('⚠️ Performance: Stall event #' + this.performanceMetrics.stallEvents);
+            logger.warn('⚠️ Performance: Stall event #' + this.performanceMetrics.stallEvents);
         });
 
         // 定期報告性能指標
@@ -154,18 +194,18 @@ class IPTVPlayer {
             if (this.video.buffered.length > 0) {
                 const bufferedEnd = this.video.buffered.end(this.video.buffered.length - 1);
                 const bufferedAmount = bufferedEnd - this.video.currentTime;
-                console.log(`📊 Performance: Buffered ahead: ${bufferedAmount.toFixed(2)}s`);
+                logger.debug(`📊 Performance: Buffered ahead: ${bufferedAmount.toFixed(2)}s`);
             }
         }, 30000); // 每30秒報告一次
     }
 
     async loadStream(url) {
-        console.log('IPTV Player: Loading stream:', url);
+        logger.debug('IPTV Player: Loading stream:', url);
 
         // 🔄 應用代理配置（如果需要）
         const proxiedUrl = PROXY_CONFIG.toProxyUrl(url);
         if (proxiedUrl !== url) {
-            console.log('IPTV Player: Using proxied URL:', proxiedUrl);
+            logger.debug('IPTV Player: Using proxied URL:', proxiedUrl);
         }
 
         this.currentUrl = proxiedUrl;
@@ -186,7 +226,7 @@ class IPTVPlayer {
             }, 100);
 
         } catch (error) {
-            console.error('IPTV Player: All loading methods failed:', error);
+            logger.error('IPTV Player: All loading methods failed:', error);
             throw error;
         }
     }
@@ -199,7 +239,7 @@ class IPTVPlayer {
         const methods = isIOS ? [
             // iOS 方法 1: 原生 HLS 播放器
             async () => {
-                console.log('IPTV Player: Using native HLS player (iOS)');
+                logger.debug('IPTV Player: Using native HLS player (iOS)');
                 if (this.isHLSStream(url)) {
                     return await this.loadNativeHLS(url);
                 } else {
@@ -208,7 +248,7 @@ class IPTVPlayer {
             },
             // iOS 方法 2: 原生播放器後備
             async () => {
-                console.log('IPTV Player: Fallback to native stream player (iOS)');
+                logger.debug('IPTV Player: Fallback to native stream player (iOS)');
                 return await this.loadNativeStream(url);
             }
         ] : [
@@ -222,15 +262,16 @@ class IPTVPlayer {
             },
             // 桌面方法 2: 強制使用 HLS.js
             async () => {
-                if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-                    console.log('IPTV Player: Forcing HLS.js');
+                const Hls = await loadHls();
+                if (Hls && Hls.isSupported()) {
+                    logger.debug('IPTV Player: Forcing HLS.js');
                     return await this.loadWithHLSJS(url);
                 }
                 throw new Error('HLS.js not available');
             },
             // 桌面方法 3: 原生播放器後備
             async () => {
-                console.log('IPTV Player: Fallback to native player');
+                logger.debug('IPTV Player: Fallback to native player');
                 return await this.loadNativeStream(url);
             }
         ];
@@ -238,17 +279,17 @@ class IPTVPlayer {
         let lastError;
         for (let i = 0; i < methods.length; i++) {
             try {
-                console.log(`IPTV Player: Trying loading method ${i + 1}/${methods.length}`);
+                logger.debug(`IPTV Player: Trying loading method ${i + 1}/${methods.length}`);
                 await methods[i]();
-                console.log(`IPTV Player: Loading method ${i + 1} succeeded`);
+                logger.debug(`IPTV Player: Loading method ${i + 1} succeeded`);
                 return; // 成功載入，退出
             } catch (error) {
-                console.warn(`IPTV Player: Loading method ${i + 1} failed:`, error.message);
+                logger.warn(`IPTV Player: Loading method ${i + 1} failed:`, error.message);
                 lastError = error;
 
                 // 在嘗試下一個方法前稍作等待（減少跳閃）
                 if (i < methods.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await new Promise(resolve => setTimeout(resolve, 100)); // 減少到 100ms
                 }
             }
         }
@@ -267,27 +308,32 @@ class IPTVPlayer {
 
     async loadHLSStream(url) {
         // 優先使用 HLS.js，因為它更穩定
-        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-            console.log('IPTV Player: Using HLS.js (preferred)');
-            try {
-                return await this.loadWithHLSJS(url);
-            } catch (error) {
-                console.warn('IPTV Player: HLS.js failed, trying native HLS:', error);
+        try {
+            const Hls = await loadHls();
+            if (Hls && Hls.isSupported()) {
+                logger.debug('IPTV Player: Using HLS.js (preferred)');
+                try {
+                    return await this.loadWithHLSJS(url);
+                } catch (error) {
+                    logger.warn('IPTV Player: HLS.js failed, trying native HLS:', error);
+                }
             }
+        } catch (error) {
+            logger.warn('IPTV Player: Failed to load HLS.js, trying native HLS:', error);
         }
 
         // 檢查瀏覽器原生 HLS 支援
         if (this.hasNativeHLSSupport()) {
-            console.log('IPTV Player: Trying native HLS support');
+            logger.debug('IPTV Player: Trying native HLS support');
             try {
                 return await this.loadNativeHLS(url);
             } catch (error) {
-                console.warn('IPTV Player: Native HLS failed, trying native stream:', error);
+                logger.warn('IPTV Player: Native HLS failed, trying native stream:', error);
             }
         }
 
         // 最後嘗試原生播放
-        console.log('IPTV Player: Fallback to native player');
+        logger.debug('IPTV Player: Fallback to native player');
         return this.loadNativeStream(url);
     }
 
@@ -310,7 +356,7 @@ class IPTVPlayer {
         try {
             return PROXY_CONFIG.toProxyUrl(url);
         } catch (error) {
-            console.error('Error in rewriteUrlForHttps:', error);
+            logger.error('Error in rewriteUrlForHttps:', error);
             return url;
         }
     }
@@ -340,7 +386,7 @@ class IPTVPlayer {
             };
 
             const onLoadedMetadata = () => {
-                console.log('IPTV Player: Metadata loaded for native HLS');
+                logger.debug('IPTV Player: Metadata loaded for native HLS');
                 // Don't resolve yet, wait for canplay or loadeddata
             };
 
@@ -362,11 +408,11 @@ class IPTVPlayer {
                 reject(new Error(errorMessage));
             };
 
-            // 設置超時
+            // 設置超時 - 減少到 5 秒以快速切換到 HLS.js
             timeoutId = setTimeout(() => {
                 cleanup();
                 reject(new Error('Native HLS loading timeout'));
-            }, 15000); // 15秒超時
+            }, 5000); // 5秒超時，快速切換到 HLS.js
 
             this.video.addEventListener('canplay', onCanPlay);
             this.video.addEventListener('loadeddata', onLoadedData);
@@ -375,14 +421,14 @@ class IPTVPlayer {
 
             // 在 HTTPS 環境下重寫 URL
             const sourceUrl = this.rewriteUrlForHttps(url);
-            console.log('IPTV Player: Loading native HLS with URL:', sourceUrl);
+            logger.debug('IPTV Player: Loading native HLS with URL:', sourceUrl);
 
             // iOS Safari 需要直接設置 src 而不是使用 source 元素
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
             if (isIOS) {
                 // iOS: 直接設置 src 屬性
-                console.log('IPTV Player: Using direct src for iOS');
+                logger.debug('IPTV Player: Using direct src for iOS');
                 this.video.src = sourceUrl;
             } else {
                 // 其他瀏覽器: 使用 source 元素
@@ -404,7 +450,14 @@ class IPTVPlayer {
     }
 
     async loadWithHLSJS(url) {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
+            // 確保 HLS.js 已載入
+            const Hls = await loadHls();
+            if (!Hls) {
+                reject(new Error('HLS.js not available'));
+                return;
+            }
+
             // 清理現有的 HLS 實例
             if (this.hls) {
                 this.hls.destroy();
@@ -419,11 +472,11 @@ class IPTVPlayer {
                 enableWorker: true,
                 lowLatencyMode: false, // 對於 IPTV 直播，關閉低延遲模式
 
-                // 🚀 優化緩衝設置 - 更激進的緩衝策略以確保流暢播放
-                backBufferLength: 90,            // 後緩衝區 1.5 分鐘（減少以節省記憶體）
-                maxBufferLength: 120,            // 最大緩衝區增加到 2 分鐘
-                maxMaxBufferLength: 600,         // 最大最大緩衝區 10 分鐘（平衡性能）
-                maxBufferSize: 300 * 1000 * 1000, // 緩衝區大小增加到 300MB
+                // 🚀 優化緩衝設置 - 減少初始緩衝以加快啟動
+                backBufferLength: 30,            // 後緩衝區 30 秒（減少記憶體使用）
+                maxBufferLength: 30,             // 最大緩衝區 30 秒（快速啟動）
+                maxMaxBufferLength: 120,         // 最大最大緩衝區 2 分鐘
+                maxBufferSize: 60 * 1000 * 1000, // 緩衝區大小 60MB（減少記憶體）
                 maxBufferHole: 0.5,              // 增加緩衝區洞容忍度（避免頻繁跳轉）
                 highBufferWatchdogPeriod: 2,     // 緩衝區監控週期（避免過度檢查）
 
@@ -433,18 +486,18 @@ class IPTVPlayer {
                 autoStartLoad: true,             // 自動開始載入
                 startPosition: -1,               // 從直播邊緣開始
 
-                // 🌐 網路優化設置
-                manifestLoadingTimeOut: 20000,   // 清單載入超時增加到 20 秒
-                manifestLoadingMaxRetry: 5,      // 清單載入重試次數增加到 5 次
-                manifestLoadingRetryDelay: 3000, // 清單載入重試延遲增加到 3 秒
+                // 🌐 網路優化設置 - 減少超時以加快啟動速度
+                manifestLoadingTimeOut: 10000,   // 清單載入超時 10 秒
+                manifestLoadingMaxRetry: 3,      // 清單載入重試次數 3 次
+                manifestLoadingRetryDelay: 1000, // 清單載入重試延遲 1 秒
 
-                levelLoadingTimeOut: 20000,      // 級別載入超時增加到 20 秒
-                levelLoadingMaxRetry: 6,         // 級別載入重試次數增加到 6 次
-                levelLoadingRetryDelay: 3000,    // 級別載入重試延遲增加到 3 秒
+                levelLoadingTimeOut: 10000,      // 級別載入超時 10 秒
+                levelLoadingMaxRetry: 3,         // 級別載入重試次數 3 次
+                levelLoadingRetryDelay: 1000,    // 級別載入重試延遲 1 秒
 
-                fragLoadingTimeOut: 40000,       // 片段載入超時增加到 40 秒
-                fragLoadingMaxRetry: 8,          // 片段載入重試次數增加到 8 次
-                fragLoadingRetryDelay: 2000,     // 片段載入重試延遲增加到 2 秒
+                fragLoadingTimeOut: 15000,       // 片段載入超時 15 秒（減少以加快失敗檢測）
+                fragLoadingMaxRetry: 6,          // 片段載入重試次數 6 次
+                fragLoadingRetryDelay: 1000,     // 片段載入重試延遲 1 秒
 
                 // 🔧 錯誤恢復和穩定性
                 enableSoftwareAES: true,         // 啟用軟體 AES 解密
@@ -503,19 +556,19 @@ class IPTVPlayer {
                 maxFragLookUpTolerance: 0.25,   // 增加片段查找容忍度（更寬容）
                 progressive: true,              // 啟用漸進式下載
 
-                // ⏱️ 超時設置
-                fragLoadingMaxRetryTimeout: 120000,    // 片段載入最大重試超時 2 分鐘
-                levelLoadingMaxRetryTimeout: 120000,   // 級別載入最大重試超時 2 分鐘
-                manifestLoadingMaxRetryTimeout: 120000 // 清單載入最大重試超時 2 分鐘
+                // ⏱️ 超時設置 - 減少以加快啟動
+                fragLoadingMaxRetryTimeout: 60000,    // 片段載入最大重試超時 1 分鐘
+                levelLoadingMaxRetryTimeout: 30000,   // 級別載入最大重試超時 30 秒
+                manifestLoadingMaxRetryTimeout: 30000 // 清單載入最大重試超時 30 秒
             });
 
             // 事件處理
             this.hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-                console.log('IPTV Player: HLS media attached');
+                logger.debug('IPTV Player: HLS media attached');
             });
 
             this.hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
-                console.log('IPTV Player: HLS manifest parsed, levels:', data.levels.length);
+                logger.debug('IPTV Player: HLS manifest parsed, levels:', data.levels.length);
                 this.performanceMetrics.loadStartTime = Date.now();
                 this.startPlayback();
                 resolve();
@@ -523,14 +576,14 @@ class IPTVPlayer {
 
             // 🎯 監控品質切換
             this.hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
-                console.log(`📊 Quality switched to level ${data.level}`);
+                logger.debug(`📊 Quality switched to level ${data.level}`);
             });
 
             // 🚀 監控片段載入性能
             this.hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
                 const loadTime = data.stats.loading.end - data.stats.loading.start;
                 if (loadTime > 3000) {
-                    console.warn(`⚠️ Slow fragment load: ${loadTime}ms`);
+                    logger.warn(`⚠️ Slow fragment load: ${loadTime}ms`);
                 }
             });
 
@@ -540,28 +593,28 @@ class IPTVPlayer {
                     const bufferedEnd = this.video.buffered.end(this.video.buffered.length - 1);
                     const bufferedAmount = bufferedEnd - this.video.currentTime;
                     if (bufferedAmount < 5) {
-                        console.warn(`⚠️ Low buffer: ${bufferedAmount.toFixed(2)}s`);
+                        logger.warn(`⚠️ Low buffer: ${bufferedAmount.toFixed(2)}s`);
                     }
                 }
             });
 
             this.hls.on(Hls.Events.ERROR, (event, data) => {
-                console.error('IPTV Player: HLS error:', data);
+                logger.error('IPTV Player: HLS error:', data);
 
                 if (data.fatal) {
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
-                            console.log('IPTV Player: Network error, attempting recovery...');
+                            logger.debug('IPTV Player: Network error, attempting recovery...');
                             // 🌐 增強網路錯誤恢復 - 增加重試次數和智能延遲
                             if (this.retryCount < 5) {
-                                console.log(`Network error retry ${this.retryCount + 1}/5`);
+                                logger.debug(`Network error retry ${this.retryCount + 1}/5`);
                                 const delay = Math.min(2000 * Math.pow(2, this.retryCount), 10000); // 指數退避，最大 10 秒
                                 setTimeout(() => {
                                     // 檢查 HLS 實例是否仍然存在
                                     if (this.hls && this.hls.startLoad) {
                                         this.hls.startLoad();
                                     } else {
-                                        console.error('IPTV Player: HLS instance is null, cannot retry');
+                                        logger.error('IPTV Player: HLS instance is null, cannot retry');
                                         reject(new Error('HLS instance destroyed'));
                                     }
                                 }, delay);
@@ -572,17 +625,17 @@ class IPTVPlayer {
                             break;
 
                         case Hls.ErrorTypes.MEDIA_ERROR:
-                            console.log('IPTV Player: Media error, attempting recovery...');
+                            logger.debug('IPTV Player: Media error, attempting recovery...');
                             // 🎬 增強媒體錯誤恢復
                             if (this.retryCount < 3) {
-                                console.log(`Media error retry ${this.retryCount + 1}/3`);
+                                logger.debug(`Media error retry ${this.retryCount + 1}/3`);
                                 setTimeout(() => {
                                     this.hls.recoverMediaError();
                                 }, 1000 * (this.retryCount + 1));
                                 this.retryCount++;
                             } else {
                                 // 最後嘗試：完全重新載入流
-                                console.log('Media error: Attempting full stream reload...');
+                                logger.debug('Media error: Attempting full stream reload...');
                                 this.hls.destroy();
                                 setTimeout(() => {
                                     this.loadStream(this.currentUrl).catch(() => {
@@ -593,10 +646,10 @@ class IPTVPlayer {
                             break;
 
                         case Hls.ErrorTypes.MUX_ERROR:
-                            console.log('IPTV Player: Mux error, attempting recovery...');
+                            logger.debug('IPTV Player: Mux error, attempting recovery...');
                             // 🔧 處理多工器錯誤
                             if (this.retryCount < 2) {
-                                console.log(`Mux error retry ${this.retryCount + 1}/2`);
+                                logger.debug(`Mux error retry ${this.retryCount + 1}/2`);
                                 setTimeout(() => {
                                     this.hls.recoverMediaError();
                                 }, 1500);
@@ -607,17 +660,17 @@ class IPTVPlayer {
                             break;
 
                         default:
-                            console.error(`IPTV Player: Fatal error - ${data.type}: ${data.details}`);
+                            logger.error(`IPTV Player: Fatal error - ${data.type}: ${data.details}`);
                             reject(new Error(`Fatal HLS error: ${data.type} - ${data.details}`));
                             break;
                     }
                 } else {
                     // 🔄 處理非致命錯誤
-                    console.warn('IPTV Player: Non-fatal HLS error:', data.details);
+                    logger.warn('IPTV Player: Non-fatal HLS error:', data.details);
 
                     // 對於緩衝區停滯錯誤，嘗試恢復
                     if (data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
-                        console.log('Buffer stalled, attempting to recover...');
+                        logger.debug('Buffer stalled, attempting to recover...');
                         if (this.video.currentTime > 0) {
                             this.video.currentTime += 0.1; // 微調播放位置
                         }
@@ -673,23 +726,23 @@ class IPTVPlayer {
                 reject(new Error(errorMessage));
             };
 
-            // 設置超時
+            // 設置超時 - 減少到 8 秒
             timeoutId = setTimeout(() => {
                 cleanup();
                 reject(new Error('Native stream loading timeout - stream may be unavailable'));
-            }, 20000); // 20秒超時
+            }, 8000); // 8秒超時
 
             // 檢查是否為 API 端點，如果是則先嘗試獲取實際串流 URL
             if (this.isAPIEndpoint(url)) {
-                console.log('IPTV Player: Detected API endpoint, attempting to resolve...');
+                logger.debug('IPTV Player: Detected API endpoint, attempting to resolve...');
                 this.resolveStreamURL(url).then(resolvedUrl => {
                     if (resolvedUrl && resolvedUrl !== url) {
-                        console.log('IPTV Player: Resolved to:', resolvedUrl);
+                        logger.debug('IPTV Player: Resolved to:', resolvedUrl);
                         url = resolvedUrl;
                     }
                     this.setupVideoSource(url, onCanPlay, onLoadedData, onError);
                 }).catch(error => {
-                    console.warn('IPTV Player: Failed to resolve, using original URL:', error);
+                    logger.warn('IPTV Player: Failed to resolve, using original URL:', error);
                     this.setupVideoSource(url, onCanPlay, onLoadedData, onError);
                 });
             } else {
@@ -746,7 +799,7 @@ class IPTVPlayer {
         try {
             // 檢查是否為 koyeb.app 的 API 端點
             if (url.includes('koyeb.app') && url.includes('/sub?')) {
-                console.log('IPTV Player: Detected koyeb.app API endpoint, using proxy...');
+                logger.debug('IPTV Player: Detected koyeb.app API endpoint, using proxy...');
                 // 使用代理來避免 CORS 問題
                 const proxyUrl = url.replace('http://breezy-audrie-zspace-7524863c.koyeb.app/sub', '/api/stream');
 
@@ -762,28 +815,28 @@ class IPTVPlayer {
 
                         // 檢查是否為 m3u8 內容或 URL
                         if (text.includes('#EXTM3U') || text.includes('.m3u8')) {
-                            console.log('IPTV Player: Got m3u8 content from proxy');
+                            logger.debug('IPTV Player: Got m3u8 content from proxy');
                             // 如果是 m3u8 播放清單內容，創建 blob URL
                             const blob = new Blob([text], { type: 'application/vnd.apple.mpegurl' });
                             return URL.createObjectURL(blob);
                         } else if (text.startsWith('http')) {
-                            console.log('IPTV Player: Got redirect URL from proxy:', text.trim());
+                            logger.debug('IPTV Player: Got redirect URL from proxy:', text.trim());
                             return text.trim();
                         }
                     }
                 } catch (proxyError) {
-                    console.warn('IPTV Player: Proxy failed:', proxyError);
+                    logger.warn('IPTV Player: Proxy failed:', proxyError);
                 }
             }
 
             // 檢查是否為有 CORS/混合內容問題的串流 (220.134.196.147:任何埠)
             // 只在 HTTPS 環境下才使用代理
             if (url.includes('220.134.196.147') && window.location?.protocol === 'https:') {
-                console.log('IPTV Player: Detected potentially CORS/mixed-content stream in HTTPS, rewriting to proxy...');
+                logger.debug('IPTV Player: Detected potentially CORS/mixed-content stream in HTTPS, rewriting to proxy...');
                 try {
                     // 將 http://220.134.196.147:<port>/xxx 統一改寫為 /api/proxy?url=...
                     const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
-                    console.log('IPTV Player: Rewritten URL:', proxyUrl);
+                    logger.debug('IPTV Player: Rewritten URL:', proxyUrl);
 
                     const response = await fetch(proxyUrl, {
                         method: 'HEAD',
@@ -791,17 +844,17 @@ class IPTVPlayer {
                     });
 
                     if (response.ok || response.type === 'opaque') {
-                        console.log('IPTV Player: Proxy reachable, using proxy URL');
+                        logger.debug('IPTV Player: Proxy reachable, using proxy URL');
                         return proxyUrl;
                     }
                 } catch (proxyError) {
-                    console.warn('IPTV Player: Proxy check failed for 220.134.196.147:', proxyError);
+                    logger.warn('IPTV Player: Proxy check failed for 220.134.196.147:', proxyError);
                 }
             }
 
             // 對於其他 URL，如果已經是代理 URL，直接返回
             if (url.includes('/api/proxy') || url.includes('/.netlify/functions/proxy')) {
-                console.log('IPTV Player: URL is already proxied, returning as-is');
+                logger.debug('IPTV Player: URL is already proxied, returning as-is');
                 return url;
             }
 
@@ -830,19 +883,19 @@ class IPTVPlayer {
                     return response.url;
                 }
             } catch (fetchError) {
-                console.warn('IPTV Player: Direct fetch failed (likely CORS), returning original URL:', fetchError.message);
+                logger.warn('IPTV Player: Direct fetch failed (likely CORS), returning original URL:', fetchError.message);
             }
 
             return url;
         } catch (error) {
-            console.warn('IPTV Player: Failed to resolve stream URL:', error);
+            logger.warn('IPTV Player: Failed to resolve stream URL:', error);
             return url;
         }
     }
 
     async startPlayback() {
         try {
-            console.log('🎬 IPTV Player: Starting automatic playback');
+            logger.debug('🎬 IPTV Player: Starting automatic playback');
 
             // 🎵 設置視頻屬性以最大化自動播放成功率
             this.video.muted = true; // 先靜音以允許自動播放
@@ -865,31 +918,31 @@ class IPTVPlayer {
 
             // 🚀 強制嘗試播放
             await this.video.play();
-            console.log('✅ IPTV Player: Automatic playback started successfully');
+            logger.debug('✅ IPTV Player: Automatic playback started successfully');
 
             // 記錄播放開始時間
             this.performanceMetrics.playbackStartTime = Date.now();
             const loadTime = this.performanceMetrics.playbackStartTime - this.performanceMetrics.loadStartTime;
-            console.log(`📊 Performance: Time to playback: ${loadTime}ms`);
+            logger.debug(`📊 Performance: Time to playback: ${loadTime}ms`);
 
             // 🔊 播放成功後自動取消靜音，讓用戶聽到聲音
             setTimeout(() => {
                 if (!this.video.paused) { // 確保仍在播放
                     this.video.muted = false;
                     this.video.volume = 0.8; // 設置合適的音量
-                    console.log('🔊 IPTV Player: Audio unmuted, volume set to 80%');
+                    logger.debug('🔊 IPTV Player: Audio unmuted, volume set to 80%');
                 }
             }, 1500); // 1.5秒後取消靜音
 
         } catch (error) {
-            console.warn('⚠️ IPTV Player: Autoplay prevented by browser policy:', error);
+            logger.warn('⚠️ IPTV Player: Autoplay prevented by browser policy:', error);
             // 即使自動播放失敗，也要準備好音頻設置
             this.video.muted = false;
             this.video.volume = 0.8;
 
             // ⚠️ Chrome 和其他瀏覽器可能會阻止自動播放
             // 但這不應該被視為載入失敗 - 視頻已經準備好，只是需要用戶互動
-            console.log('💡 IPTV Player: Video loaded successfully, waiting for user interaction to play');
+            logger.debug('💡 IPTV Player: Video loaded successfully, waiting for user interaction to play');
 
             // 不要拋出錯誤，讓視頻保持在準備好的狀態
             // 用戶點擊播放按鈕時會觸發播放
@@ -909,7 +962,7 @@ class IPTVPlayer {
 
     // 強制視頻重新渲染
     forceVideoRerender() {
-        console.log('IPTV Player: Forcing video rerender');
+        logger.debug('IPTV Player: Forcing video rerender');
 
         // 方法1: 強制重新計算佈局
         const container = this.video.parentElement;
@@ -937,7 +990,7 @@ class IPTVPlayer {
             this.video.style.minHeight = '400px';
         }
 
-        console.log('Video element dimensions:', {
+        logger.debug('Video element dimensions:', {
             width: rect.width,
             height: rect.height,
             x: rect.x,
@@ -948,25 +1001,25 @@ class IPTVPlayer {
 
     // 事件處理器
     onLoadStart() {
-        console.log('IPTV Player: Load start');
+        logger.debug('IPTV Player: Load start');
     }
 
     onLoadedMetadata() {
-        console.log('IPTV Player: Metadata loaded');
-        console.log('Video dimensions:', this.video.videoWidth, 'x', this.video.videoHeight);
+        logger.debug('IPTV Player: Metadata loaded');
+        logger.debug('Video dimensions:', this.video.videoWidth, 'x', this.video.videoHeight);
     }
 
     onCanPlay() {
-        console.log('IPTV Player: Can play');
+        logger.debug('IPTV Player: Can play');
     }
 
     onPlaying() {
-        console.log('IPTV Player: Playing');
+        logger.debug('IPTV Player: Playing');
         this.retryCount = 0; // 重置重試計數
     }
 
     onError(event) {
-        console.error('IPTV Player: Video error:', event);
+        logger.error('IPTV Player: Video error:', event);
 
         // 只在特定錯誤情況下重試，避免無限重試
         const errorCode = event.target?.error?.code;
@@ -974,21 +1027,21 @@ class IPTVPlayer {
 
         if (shouldRetry && this.retryCount < this.maxRetries && this.currentUrl) {
             this.retryCount++;
-            console.log(`IPTV Player: Retrying (${this.retryCount}/${this.maxRetries}) for error code ${errorCode}...`);
+            logger.debug(`IPTV Player: Retrying (${this.retryCount}/${this.maxRetries}) for error code ${errorCode}...`);
             setTimeout(() => {
                 this.loadStream(this.currentUrl);
             }, 5000); // 增加重試間隔到5秒
         } else {
-            console.log('IPTV Player: Not retrying - error code:', errorCode, 'retry count:', this.retryCount);
+            logger.debug('IPTV Player: Not retrying - error code:', errorCode, 'retry count:', this.retryCount);
         }
     }
 
     onStalled() {
-        console.log('IPTV Player: Stalled');
+        logger.debug('IPTV Player: Stalled');
     }
 
     onWaiting() {
-        console.log('IPTV Player: Waiting/Buffering');
+        logger.debug('IPTV Player: Waiting/Buffering');
     }
 
     // 公共方法

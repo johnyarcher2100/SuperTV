@@ -1,3 +1,8 @@
+// 📝 導入 Logger 工具
+import { createLogger } from './logger.js';
+
+// 創建 Player 專用的 logger
+const logger = createLogger('VideoPlayer');
 // Import HLS.js from npm package
 import Hls from 'hls.js';
 
@@ -54,7 +59,7 @@ class VideoPlayer {
 
             // Determine best engine for this stream
             const engine = this.selectEngine(channel.url);
-            console.log(`Loading channel ${channel.name} with engine: ${engine}`);
+            logger.debug(`Loading channel ${channel.name} with engine: ${engine}`);
 
             // Load with selected engine
             switch (engine) {
@@ -77,7 +82,7 @@ class VideoPlayer {
             }, 100);
 
         } catch (error) {
-            console.error('Failed to load channel:', error);
+            logger.error('Failed to load channel:', error);
             this.showError(`載入頻道失敗: ${error.message}`);
             this.updatePlayerInfo(channel.name, 'Error');
         } finally {
@@ -98,17 +103,17 @@ class VideoPlayer {
 
             // Safari 和 iOS 優先使用原生 HLS 支援
             if (canPlayHLS && (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome'))) {
-                console.log('Using native HLS support for Safari');
+                logger.debug('Using native HLS support for Safari');
                 return 'native';
             }
             // 其他瀏覽器使用 HLS.js
             else if (Hls.isSupported()) {
-                console.log('Using HLS.js for non-Safari browsers');
+                logger.debug('Using HLS.js for non-Safari browsers');
                 return 'hls';
             }
             // 備用原生支援
             else if (canPlayHLS) {
-                console.log('Fallback to native HLS support');
+                logger.debug('Fallback to native HLS support');
                 return 'native';
             }
         }
@@ -150,47 +155,47 @@ class VideoPlayer {
 
         return new Promise((resolve, reject) => {
             this.hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-                console.log('HLS: Media attached');
+                logger.debug('HLS: Media attached');
             });
 
             this.hls.on(Hls.Events.LEVEL_LOADED, (event, data) => {
-                console.log('HLS: Level loaded', data.level, data.details);
+                logger.debug('HLS: Level loaded', data.level, data.details);
             });
 
             this.hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
-                console.log('HLS: Fragment loaded', data.frag.level, data.frag.sn);
+                logger.debug('HLS: Fragment loaded', data.frag.level, data.frag.sn);
             });
 
             this.hls.on(Hls.Events.BUFFER_APPENDED, (event, data) => {
-                console.log('HLS: Buffer appended', data.type);
+                logger.debug('HLS: Buffer appended', data.type);
             });
 
             this.hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
-                console.log('HLS: Manifest parsed, levels:', data.levels.length);
+                logger.debug('HLS: Manifest parsed, levels:', data.levels.length);
                 this.updateQualitySelector(data.levels);
 
                 // 檢查視頻軌道
                 setTimeout(() => {
-                    console.log('Video tracks:', this.video.videoTracks?.length || 0);
-                    console.log('Audio tracks:', this.video.audioTracks?.length || 0);
-                    console.log('Video dimensions:', this.video.videoWidth, 'x', this.video.videoHeight);
-                    console.log('Video ready state:', this.video.readyState);
+                    logger.debug('Video tracks:', this.video.videoTracks?.length || 0);
+                    logger.debug('Audio tracks:', this.video.audioTracks?.length || 0);
+                    logger.debug('Video dimensions:', this.video.videoWidth, 'x', this.video.videoHeight);
+                    logger.debug('Video ready state:', this.video.readyState);
                 }, 1000);
 
                 // Try to start playback
                 this.video.play().then(() => {
-                    console.log('HLS: Playback started successfully');
+                    logger.debug('HLS: Playback started successfully');
                     // 取消靜音以確保音頻播放
                     this.video.muted = false;
                 }).catch(error => {
-                    console.log('HLS: Autoplay prevented, user interaction required:', error);
+                    logger.debug('HLS: Autoplay prevented, user interaction required:', error);
                 });
 
                 resolve();
             });
 
             this.hls.on(Hls.Events.ERROR, (event, data) => {
-                console.error('HLS Error:', data);
+                logger.error('HLS Error:', data);
                 if (data.fatal) {
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
@@ -219,19 +224,19 @@ class VideoPlayer {
 
                 // 檢查視頻軌道
                 setTimeout(() => {
-                    console.log('Native - Video tracks:', this.video.videoTracks?.length || 0);
-                    console.log('Native - Audio tracks:', this.video.audioTracks?.length || 0);
-                    console.log('Native - Video dimensions:', this.video.videoWidth, 'x', this.video.videoHeight);
-                    console.log('Native - Video ready state:', this.video.readyState);
+                    logger.debug('Native - Video tracks:', this.video.videoTracks?.length || 0);
+                    logger.debug('Native - Audio tracks:', this.video.audioTracks?.length || 0);
+                    logger.debug('Native - Video dimensions:', this.video.videoWidth, 'x', this.video.videoHeight);
+                    logger.debug('Native - Video ready state:', this.video.readyState);
                 }, 1000);
 
                 // Try to start playback
                 this.video.play().then(() => {
-                    console.log('Native: Playback started successfully');
+                    logger.debug('Native: Playback started successfully');
                     // 取消靜音以確保音頻播放
                     this.video.muted = false;
                 }).catch(error => {
-                    console.log('Native: Autoplay prevented, user interaction required:', error);
+                    logger.debug('Native: Autoplay prevented, user interaction required:', error);
                 });
 
                 resolve();
@@ -286,7 +291,7 @@ class VideoPlayer {
                         return;
                 }
             } catch (error) {
-                console.warn(`Engine ${engine} failed:`, error);
+                logger.warn(`Engine ${engine} failed:`, error);
                 continue;
             }
         }
@@ -299,7 +304,7 @@ class VideoPlayer {
             await this.video.play();
             this.isPlaying = true;
         } catch (error) {
-            console.error('Play failed:', error);
+            logger.error('Play failed:', error);
             throw error;
         }
     }
@@ -325,7 +330,7 @@ class VideoPlayer {
 
     // 強制視頻重新渲染
     forceVideoRerender() {
-        console.log('Player: Forcing video rerender');
+        logger.debug('Player: Forcing video rerender');
 
         // 方法1: 強制重新計算佈局
         const container = this.video.parentElement;
@@ -353,7 +358,7 @@ class VideoPlayer {
             this.video.style.minHeight = '400px';
         }
 
-        console.log('Video element dimensions:', rect);
+        logger.debug('Video element dimensions:', rect);
     }
 
     setVolume(volume) {
@@ -440,7 +445,7 @@ class VideoPlayer {
     onCanPlay() {
         this.updatePlayerInfo(this.currentChannel?.name || '', 'Ready');
         if (this.settings.autoPlay) {
-            this.play().catch(console.error);
+            this.play().catch(err => logger.error('Auto-play failed:', err));
         }
     }
 
@@ -461,11 +466,11 @@ class VideoPlayer {
 
         // 檢查視頻尺寸
         setTimeout(() => {
-            console.log('Video refresh - dimensions:', this.video.videoWidth, 'x', this.video.videoHeight);
-            console.log('Video refresh - current time:', this.video.currentTime);
+            logger.debug('Video refresh - dimensions:', this.video.videoWidth, 'x', this.video.videoHeight);
+            logger.debug('Video refresh - current time:', this.video.currentTime);
 
             if (this.video.videoWidth === 0 || this.video.videoHeight === 0) {
-                console.warn('Video has no dimensions, trying to fix...');
+                logger.warn('Video has no dimensions, trying to fix...');
                 // 嘗試重新載入
                 this.video.load();
             }
@@ -481,11 +486,11 @@ class VideoPlayer {
         // 只在有頻道載入時才顯示錯誤
         // 避免在初始化時因為沒有源而觸發錯誤提示
         if (this.currentChannel) {
-            console.error('Video error:', event);
+            logger.error('Video error:', event);
             this.showError('播放發生錯誤，請重試');
             this.updatePlayerInfo(this.currentChannel?.name || '', 'Error');
         } else {
-            console.log('Video error ignored (no channel loaded)');
+            logger.debug('Video error ignored (no channel loaded)');
         }
     }
 

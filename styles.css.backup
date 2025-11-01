@@ -432,28 +432,28 @@ body {
     box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);
 }
 
-/* Channel list - 虛擬滾動容器 */
+/* Channel list - 改為網格佈局（四列） */
 .channel-list {
     flex: 1;
-    overflow: hidden; /* 虛擬滾動器自己處理滾動 */
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.3) transparent;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    align-content: start;
     padding: 10px;
 }
 
-/* 虛擬滾動器視口滾動條樣式 */
-.virtual-scroller-viewport {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.3) transparent;
-}
-
-.virtual-scroller-viewport::-webkit-scrollbar {
+.channel-list::-webkit-scrollbar {
     width: 8px;
 }
 
-.virtual-scroller-viewport::-webkit-scrollbar-track {
+.channel-list::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.virtual-scroller-viewport::-webkit-scrollbar-thumb {
+.channel-list::-webkit-scrollbar-thumb {
     background: rgba(255,255,255,0.3);
     border-radius: 4px;
 }
@@ -980,7 +980,21 @@ body {
 }
 
 /* Responsive design */
-/* 虛擬滾動器會自動處理列數，這裡只需要調整容器 */
+/* 大屏幕 - 保持四列 */
+@media (min-width: 1400px) {
+    .channel-list {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 25px;
+    }
+}
+
+/* 中等屏幕 - 三列 */
+@media (max-width: 1200px) and (min-width: 769px) {
+    .channel-list {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+    }
+}
 
 /* 平板 - 兩列 */
 @media (max-width: 768px) {
@@ -991,6 +1005,11 @@ body {
     .channel-panel {
         padding: 20px 15px;
         max-width: 100%;
+    }
+
+    .channel-list {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
     }
 
     .header h1 {

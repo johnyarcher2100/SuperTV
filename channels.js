@@ -1,47 +1,16 @@
-// 頻道圖標映射表
+// 📝 導入 Logger 工具
+import { createLogger } from './logger.js';
+
+// 創建 ChannelManager 專用的 logger
+const logger = createLogger('ChannelManager');
+
+// 🎨 頻道圖標映射表
+// 注意：移除了所有無效的 placeholder URL
+// 現在使用 CSS 生成的文字圖標作為默認顯示
+// 如果未來有真實圖標，可以在這裡添加
 const CHANNEL_LOGOS = {
-    // 主要台灣頻道
-    '台視': 'https://i.imgur.com/placeholder.png',
-    '中視': 'https://i.imgur.com/placeholder.png',
-    '華視': 'https://i.imgur.com/placeholder.png',
-    '民視': 'https://i.imgur.com/placeholder.png',
-    '公視': 'https://i.imgur.com/placeholder.png',
-
-    // 新聞頻道
-    'TVBS新聞': 'https://i.imgur.com/placeholder.png',
-    'TVBS': 'https://i.imgur.com/placeholder.png',
-    '東森新聞': 'https://i.imgur.com/placeholder.png',
-    '中天新聞': 'https://i.imgur.com/placeholder.png',
-    '三立新聞': 'https://i.imgur.com/placeholder.png',
-    '非凡新聞': 'https://i.imgur.com/placeholder.png',
-    '年代新聞': 'https://i.imgur.com/placeholder.png',
-
-    // 綜藝/戲劇頻道
-    '三立台灣': 'https://i.imgur.com/placeholder.png',
-    '三立都會': 'https://i.imgur.com/placeholder.png',
-    '八大綜合': 'https://i.imgur.com/placeholder.png',
-    '八大第一': 'https://i.imgur.com/placeholder.png',
-    '八大戲劇': 'https://i.imgur.com/placeholder.png',
-    '東森綜合': 'https://i.imgur.com/placeholder.png',
-    '東森戲劇': 'https://i.imgur.com/placeholder.png',
-    '緯來綜合': 'https://i.imgur.com/placeholder.png',
-    '緯來戲劇': 'https://i.imgur.com/placeholder.png',
-    '緯來日本': 'https://i.imgur.com/placeholder.png',
-
-    // 電影頻道
-    'HBO': 'https://i.imgur.com/placeholder.png',
-    'AXN': 'https://i.imgur.com/placeholder.png',
-    'CINEMAX': 'https://i.imgur.com/placeholder.png',
-    '好萊塢電影': 'https://i.imgur.com/placeholder.png',
-    '緯來電影': 'https://i.imgur.com/placeholder.png',
-
-    // 兒童頻道
-    'MOMO親子台': 'https://i.imgur.com/placeholder.png',
-    '東森幼幼': 'https://i.imgur.com/placeholder.png',
-
-    // 體育頻道
-    '緯來體育': 'https://i.imgur.com/placeholder.png',
-    'DAZN': 'https://i.imgur.com/placeholder.png'
+    // 預留給未來的真實圖標
+    // 例如：'台視': 'https://example.com/ttv-logo.png'
 };
 
 // 根據頻道名稱獲取圖標
@@ -58,7 +27,8 @@ function getChannelLogo(channelName) {
         }
     }
 
-    // 返回默認圖標（使用頻道名稱首字作為佔位符）
+    // 返回 null，使用 CSS 文字圖標
+    // 這樣可以避免無效的網路請求
     return null;
 }
 
@@ -178,7 +148,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         let currentChannel = null;
         let channelId = 1;
 
-        console.log(`Parsing playlist with ${lines.length} lines`);
+        logger.debug(`Parsing playlist with ${lines.length} lines`);
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
@@ -244,7 +214,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
             }
         }
 
-        console.log(`Parsed ${channels.length} channels successfully`);
+        logger.debug(`Parsed ${channels.length} channels successfully`);
         return channels;
     }
 
