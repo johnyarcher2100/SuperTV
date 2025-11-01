@@ -1,9 +1,11 @@
+// Import HLS.js from npm package
+import Hls from 'hls.js';
+
 // Video Player with multiple engine support
 class VideoPlayer {
     constructor(videoElement) {
         this.video = videoElement;
         this.hls = null;
-        this.vlc = null;
         this.currentEngine = 'auto';
         this.currentChannel = null;
         this.isPlaying = false;
@@ -13,7 +15,7 @@ class VideoPlayer {
             autoPlay: false,
             bufferSize: 'medium'
         };
-        
+
         this.init();
     }
 
@@ -58,9 +60,6 @@ class VideoPlayer {
             switch (engine) {
                 case 'hls':
                     await this.loadWithHLS(channel.url);
-                    break;
-                case 'vlc':
-                    await this.loadWithVLC(channel.url);
                     break;
                 case 'native':
                     await this.loadWithNative(channel.url);
@@ -112,11 +111,6 @@ class VideoPlayer {
                 console.log('Fallback to native HLS support');
                 return 'native';
             }
-        }
-
-        // For other formats, try VLC first if available
-        if (window.libvlc && window.libvlc.isSupported()) {
-            return 'vlc';
         }
 
         return 'native';
@@ -217,53 +211,6 @@ class VideoPlayer {
         });
     }
 
-    async loadWithVLC(url) {
-        // For now, VLC.js is not reliably available via CDN
-        // Fall back to Video.js with advanced features
-        if (window.videojs) {
-            return this.loadWithVideoJS(url);
-        }
-        throw new Error('VLC player not available, falling back to other engines');
-    }
-
-    async loadWithVideoJS(url) {
-        return new Promise((resolve, reject) => {
-            try {
-                // Initialize Video.js if not already done
-                if (!this.videoJSPlayer) {
-                    this.videoJSPlayer = window.videojs(this.video, {
-                        fluid: true,
-                        responsive: true,
-                        html5: {
-                            hls: {
-                                enableLowInitialPlaylist: true,
-                                smoothQualityChange: true,
-                                overrideNative: true
-                            }
-                        }
-                    });
-                }
-
-                this.videoJSPlayer.ready(() => {
-                    this.videoJSPlayer.src({
-                        src: url,
-                        type: url.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
-                    });
-
-                    this.videoJSPlayer.one('loadeddata', () => {
-                        resolve();
-                    });
-
-                    this.videoJSPlayer.one('error', (error) => {
-                        reject(new Error('Video.js failed to load stream'));
-                    });
-                });
-            } catch (error) {
-                reject(error);
-            }
-        });
-    }
-
     async loadWithNative(url) {
         return new Promise((resolve, reject) => {
             const onCanPlay = () => {
@@ -323,20 +270,14 @@ class VideoPlayer {
 
     async loadWithAuto(url) {
         // Try engines in order of preference
-        const engines = ['hls', 'vlc', 'native'];
-        
+        const engines = ['hls', 'native'];
+
         for (const engine of engines) {
             try {
                 switch (engine) {
                     case 'hls':
                         if (url.includes('.m3u8') && Hls.isSupported()) {
                             await this.loadWithHLS(url);
-                            return;
-                        }
-                        break;
-                    case 'vlc':
-                        if (window.videojs || window.vlcAvailable) {
-                            await this.loadWithVLC(url);
                             return;
                         }
                         break;
@@ -349,7 +290,7 @@ class VideoPlayer {
                 continue;
             }
         }
-        
+
         throw new Error('All playback engines failed');
     }
 
@@ -375,11 +316,6 @@ class VideoPlayer {
         if (this.hls) {
             this.hls.destroy();
             this.hls = null;
-        }
-
-        if (this.videoJSPlayer) {
-            this.videoJSPlayer.dispose();
-            this.videoJSPlayer = null;
         }
 
         this.video.src = '';
@@ -580,4 +516,6 @@ class VideoPlayer {
 }
 
 // Export for use in other files
+export { VideoPlayer };
+// Also export to window for backward compatibility
 window.VideoPlayer = VideoPlayer;

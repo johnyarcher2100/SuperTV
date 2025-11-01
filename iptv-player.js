@@ -1,3 +1,10 @@
+// Import HLS.js from npm package
+import Hls from 'hls.js';
+import { createLogger } from './logger.js';
+
+// Create logger instance for IPTV Player
+const logger = createLogger('IPTVPlayer');
+
 /**
  * 🎯 代理配置 - 處理 CORS 和混合內容問題
  */
@@ -20,14 +27,19 @@ const PROXY_CONFIG = {
         if (!url) return false;
 
         // 避免重複代理：如果已經是代理 URL，不需要再代理
-        if (url.includes('/.netlify/functions/proxy?url=')) {
+        if (url.includes('/.netlify/functions/proxy?url=') || url.includes('/api/proxy?url=')) {
             return false;
         }
 
         const urlLower = url.toLowerCase();
 
-        // 在 HTTPS 環境下，檢查是否需要代理
-        if (typeof window !== 'undefined' && window.location?.protocol === 'https:') {
+        // 檢查是否是本地開發環境
+        const isLocalhost = typeof window !== 'undefined' &&
+                           (window.location?.hostname === 'localhost' ||
+                            window.location?.hostname === '127.0.0.1');
+
+        // 在開發環境或 HTTPS 環境下，檢查是否需要代理
+        if (isLocalhost || (typeof window !== 'undefined' && window.location?.protocol === 'https:')) {
             // HTTP URL 需要代理（避免混合內容）
             if (urlLower.startsWith('http://')) return true;
 
@@ -47,13 +59,26 @@ const PROXY_CONFIG = {
         if (!url) return url;
 
         // 避免重複代理：如果已經是代理 URL，直接返回
-        if (url.includes('/.netlify/functions/proxy?url=')) {
+        if (url.includes('/.netlify/functions/proxy?url=') || url.includes('/api/proxy?url=')) {
             return url;
         }
 
         if (!this.needsProxy(url)) return url;
 
         console.log('🔄 Using proxy for:', url);
+
+        // 在開發環境使用 Vite 代理，生產環境使用 Netlify Functions
+        if (typeof window !== 'undefined') {
+            const isLocalhost = window.location?.hostname === 'localhost' ||
+                               window.location?.hostname === '127.0.0.1';
+
+            if (isLocalhost) {
+                // 開發環境：使用 Vite 代理
+                return `/api/proxy?url=${encodeURIComponent(url)}`;
+            }
+        }
+
+        // 生產環境：使用 Netlify Functions
         return `/.netlify/functions/proxy?url=${encodeURIComponent(url)}`;
     }
 };
@@ -136,7 +161,14 @@ class IPTVPlayer {
 
     async loadStream(url) {
         console.log('IPTV Player: Loading stream:', url);
-        this.currentUrl = url;
+
+        // 🔄 應用代理配置（如果需要）
+        const proxiedUrl = PROXY_CONFIG.toProxyUrl(url);
+        if (proxiedUrl !== url) {
+            console.log('IPTV Player: Using proxied URL:', proxiedUrl);
+        }
+
+        this.currentUrl = proxiedUrl;
         this.retryCount = 0;
 
         try {
@@ -146,7 +178,7 @@ class IPTVPlayer {
             this.forceVideoRerender();
 
             // 嘗試多種載入方法
-            await this.tryMultipleLoadMethods(url);
+            await this.tryMultipleLoadMethods(proxiedUrl);
 
             // 載入後再次強制重新渲染
             setTimeout(() => {
@@ -434,8 +466,9 @@ class IPTVPlayer {
                 },
 
                 fetchSetup: function(context, initParams) {
-                    // 使用統一的代理配置
-                    let targetUrl = PROXY_CONFIG.toProxyUrl(context.url);
+                    // context.url 已經是完整的 URL（可能已經是代理 URL）
+                    // 因為我們在代理中間件中已經重寫了 m3u8 中的 URL
+                    const targetUrl = context.url;
 
                     const headers = new Headers(initParams?.headers || {});
 
@@ -524,7 +557,13 @@ class IPTVPlayer {
                                 console.log(`Network error retry ${this.retryCount + 1}/5`);
                                 const delay = Math.min(2000 * Math.pow(2, this.retryCount), 10000); // 指數退避，最大 10 秒
                                 setTimeout(() => {
-                                    this.hls.startLoad();
+                                    // 檢查 HLS 實例是否仍然存在
+                                    if (this.hls && this.hls.startLoad) {
+                                        this.hls.startLoad();
+                                    } else {
+                                        console.error('IPTV Player: HLS instance is null, cannot retry');
+                                        reject(new Error('HLS instance destroyed'));
+                                    }
                                 }, delay);
                                 this.retryCount++;
                             } else {
@@ -666,8 +705,8 @@ class IPTVPlayer {
 
         // 清除現有內容並設置新源
         this.video.innerHTML = '';
-        // 使用統一的代理配置
-        const sourceUrl = PROXY_CONFIG.toProxyUrl(url);
+        // URL 已經在 loadStream 中通過代理處理過了，這裡不需要再次處理
+        const sourceUrl = url;
 
         // 檢測是否為 iOS
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -760,28 +799,38 @@ class IPTVPlayer {
                 }
             }
 
-            // 對於其他 URL，嘗試直接解析
-            const response = await fetch(url, {
-                method: 'HEAD',
-                mode: 'no-cors', // 避免 CORS 預檢請求
-                timeout: 5000
-            });
-
-            // 檢查回應的 Content-Type
-            const contentType = response.headers.get('content-type');
-
-            if (contentType && (
-                contentType.includes('application/vnd.apple.mpegurl') ||
-                contentType.includes('application/x-mpegURL') ||
-                contentType.includes('video/') ||
-                contentType.includes('application/octet-stream')
-            )) {
+            // 對於其他 URL，如果已經是代理 URL，直接返回
+            if (url.includes('/api/proxy') || url.includes('/.netlify/functions/proxy')) {
+                console.log('IPTV Player: URL is already proxied, returning as-is');
                 return url;
             }
 
-            // 如果是重定向，獲取最終 URL
-            if (response.redirected) {
-                return response.url;
+            // 嘗試直接解析（可能會因 CORS 失敗）
+            try {
+                const response = await fetch(url, {
+                    method: 'HEAD',
+                    mode: 'no-cors', // 避免 CORS 預檢請求
+                    timeout: 5000
+                });
+
+                // 檢查回應的 Content-Type
+                const contentType = response.headers.get('content-type');
+
+                if (contentType && (
+                    contentType.includes('application/vnd.apple.mpegurl') ||
+                    contentType.includes('application/x-mpegURL') ||
+                    contentType.includes('video/') ||
+                    contentType.includes('application/octet-stream')
+                )) {
+                    return url;
+                }
+
+                // 如果是重定向，獲取最終 URL
+                if (response.redirected) {
+                    return response.url;
+                }
+            } catch (fetchError) {
+                console.warn('IPTV Player: Direct fetch failed (likely CORS), returning original URL:', fetchError.message);
             }
 
             return url;
@@ -973,4 +1022,6 @@ class IPTVPlayer {
 }
 
 // 導出到全局作用域
+export { IPTVPlayer, PROXY_CONFIG };
+// Also export to window for backward compatibility
 window.IPTVPlayer = IPTVPlayer;

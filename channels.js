@@ -337,4 +337,6 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
 }
 
 // Export for use in other files
+export { ChannelManager };
+// Also export to window for backward compatibility
 window.ChannelManager = ChannelManager;

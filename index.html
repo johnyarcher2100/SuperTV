@@ -2,26 +2,43 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+    <!-- Primary Meta Tags -->
     <title>SuperTV - 多格式直播播放器</title>
+    <meta name="title" content="SuperTV - 多格式直播播放器">
+    <meta name="description" content="支援 HLS、M3U8 等多種格式的現代化直播播放器，提供 70+ 台灣電視頻道">
+    <meta name="keywords" content="直播,電視,台灣,HLS,M3U8,播放器,IPTV">
+    <meta name="author" content="SuperTV Team">
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#1e3c72">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SuperTV">
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="mask-icon" href="/icon.svg" color="#1e3c72">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://supertv.netlify.app/">
+    <meta property="og:title" content="SuperTV - 多格式直播播放器">
+    <meta property="og:description" content="支援 HLS、M3U8 等多種格式的現代化直播播放器">
+    <meta property="og:image" content="/icon.svg">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://supertv.netlify.app/">
+    <meta property="twitter:title" content="SuperTV - 多格式直播播放器">
+    <meta property="twitter:description" content="支援 HLS、M3U8 等多種格式的現代化直播播放器">
+    <meta property="twitter:image" content="/icon.svg">
+
     <link rel="stylesheet" href="styles.css">
-    <!-- HLS.js for HLS streaming support -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"></script>
-    <!-- Video.js with HLS support as fallback -->
-    <script src="https://vjs.zencdn.net/8.5.2/video.min.js"></script>
-    <link href="https://vjs.zencdn.net/8.5.2/video-js.css" rel="stylesheet">
-    <!-- VLC Web Plugin alternative - using a more reliable approach -->
-    <script>
-        // Check for VLC plugin availability
-        window.vlcAvailable = false;
-        try {
-            if (navigator.plugins && navigator.plugins['VLC Web Plugin']) {
-                window.vlcAvailable = true;
-            }
-        } catch (e) {
-            console.log('VLC plugin not available');
-        }
-    </script>
+    <!-- HLS.js 將通過 ES modules 載入，不需要 CDN -->
 </head>
 <body>
     <div class="container">
@@ -48,6 +65,14 @@
                             <div class="btn-content">
                                 <h3>秒開直播源</h3>
                                 <p>快速載入頻道</p>
+                            </div>
+                        </button>
+
+                        <button id="load-jipin-source" class="source-btn">
+                            <div class="btn-icon">⭐</div>
+                            <div class="btn-content">
+                                <h3>極品直播源</h3>
+                                <p>高品質頻道</p>
                             </div>
                         </button>
 
@@ -96,14 +121,6 @@
                             <div class="btn-content">
                                 <h3>Gather 直播源</h3>
                                 <p>聚合頻道集合</p>
-                            </div>
-                        </button>
-
-                        <button id="load-jipin-source" class="source-btn">
-                            <div class="btn-icon">⭐</div>
-                            <div class="btn-content">
-                                <h3>極品直播源</h3>
-                                <p>高品質頻道</p>
                             </div>
                         </button>
 

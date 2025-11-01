@@ -1,0 +1,40 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3c72;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2a5298;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="tvGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="512" height="512" rx="115" fill="url(#bgGradient)"/>
+  
+  <!-- TV Screen -->
+  <rect x="96" y="96" width="320" height="240" rx="16" fill="url(#tvGradient)" opacity="0.95"/>
+  <rect x="112" y="112" width="288" height="208" rx="8" fill="#000000"/>
+  
+  <!-- Play button in center -->
+  <circle cx="256" cy="216" r="48" fill="#ffffff" opacity="0.9"/>
+  <path d="M 236 196 L 236 236 L 276 216 Z" fill="#1e3c72"/>
+  
+  <!-- Signal waves -->
+  <path d="M 180 180 Q 160 180 160 160" stroke="#4CAF50" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <path d="M 170 190 Q 155 190 155 175" stroke="#4CAF50" stroke-width="6" fill="none" stroke-linecap="round"/>
+  
+  <path d="M 332 180 Q 352 180 352 160" stroke="#4CAF50" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <path d="M 342 190 Q 357 190 357 175" stroke="#4CAF50" stroke-width="6" fill="none" stroke-linecap="round"/>
+  
+  <!-- TV Stand -->
+  <rect x="216" y="336" width="80" height="16" rx="4" fill="url(#tvGradient)"/>
+  <rect x="176" y="352" width="160" height="24" rx="8" fill="url(#tvGradient)"/>
+  
+  <!-- "LIVE" indicator -->
+  <rect x="320" y="120" width="64" height="24" rx="12" fill="#FF4444"/>
+  <text x="352" y="136" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">LIVE</text>
+</svg>
+
