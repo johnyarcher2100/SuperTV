@@ -115,18 +115,14 @@ class SuperTVApp {
             const width = window.innerWidth;
             let columns, gap;
 
-            if (width <= 480) {
-                // iPhone: 2列
-                columns = 2;
-                gap = 10;
-            } else if (width <= 768) {
-                // 平板: 2列
-                columns = 2;
-                gap = 15;
+            if (width <= 768) {
+                // iPhone 和平板: 4列
+                columns = 4;
+                gap = 8;
             } else if (width <= 1200) {
-                // 中等屏幕: 3列
-                columns = 3;
-                gap = 18;
+                // 中等屏幕: 4列
+                columns = 4;
+                gap = 15;
             } else {
                 // 大屏幕: 4列
                 columns = 4;
