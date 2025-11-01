@@ -110,22 +110,38 @@ class SuperTVApp {
     initVirtualScroller() {
         const channelListContainer = document.getElementById('channel-list');
 
-        // 根據屏幕寬度決定列數和間距
+        // 根據屏幕寬度決定列數和間距（保持統一比例）
         const getResponsiveConfig = () => {
             const width = window.innerWidth;
+            let columns, gap;
+
             if (width <= 480) {
-                // iPhone
-                return { columns: 2, gap: 10, itemHeight: 70 };
+                // iPhone: 2列
+                columns = 2;
+                gap = 10;
             } else if (width <= 768) {
-                // 平板
-                return { columns: 2, gap: 15, itemHeight: 80 };
+                // 平板: 2列
+                columns = 2;
+                gap = 15;
             } else if (width <= 1200) {
-                // 中等屏幕
-                return { columns: 3, gap: 18, itemHeight: 90 };
+                // 中等屏幕: 3列
+                columns = 3;
+                gap = 18;
             } else {
-                // 大屏幕
-                return { columns: 4, gap: 20, itemHeight: 100 };
+                // 大屏幕: 4列
+                columns = 4;
+                gap = 20;
             }
+
+            // 計算卡片寬度（考慮 85% 容器寬度）
+            const containerWidth = channelListContainer.offsetWidth * 0.85;
+            const totalGap = gap * (columns - 1);
+            const cardWidth = (containerWidth - totalGap) / columns;
+
+            // 使用 aspect-ratio 1:1.4 計算高度
+            const itemHeight = cardWidth * 1.4;
+
+            return { columns, gap, itemHeight };
         };
 
         const config = getResponsiveConfig();
