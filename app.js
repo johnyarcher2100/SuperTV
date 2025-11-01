@@ -1407,6 +1407,16 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         const panel = document.getElementById('channel-panel');
         if (panel) {
             panel.classList.remove('hidden');
+
+            // 🔧 面板顯示後，重新計算虛擬滾動器的容器高度
+            if (this.virtualScroller) {
+                // 使用 setTimeout 確保 DOM 已更新
+                setTimeout(() => {
+                    this.virtualScroller.updateContainerHeight();
+                    this.virtualScroller.update();
+                    logger.debug('Virtual scroller updated after panel shown');
+                }, 0);
+            }
         }
     }
 
