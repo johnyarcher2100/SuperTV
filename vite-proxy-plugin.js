@@ -1,13 +1,18 @@
 /**
  * Vite 自定義代理插件
- * 用於處理動態代理請求
+ * 用於處理動態代理請求和截圖 API
  */
 export function customProxyPlugin() {
   return {
     name: 'custom-proxy',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        // 只處理 /api/proxy 請求
+        // 處理截圖 API
+        if (req.url?.startsWith('/api/screenshot')) {
+          return handleScreenshotRequest(req, res);
+        }
+
+        // 處理代理請求
         if (!req.url?.startsWith('/api/proxy')) {
           return next();
         }
@@ -132,3 +137,86 @@ export function customProxyPlugin() {
   };
 }
 
+/**
+ * 處理截圖請求
+ * 使用 FFmpeg 從視頻流截取畫面
+ */
+async function handleScreenshotRequest(req, res) {
+  try {
+    // 只接受 POST 請求
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+      return;
+    }
+
+    // 讀取請求體
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        const { url, channelName } = JSON.parse(body);
+
+        if (!url) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing url parameter' }));
+          return;
+        }
+
+        console.log(`📸 Screenshot request for: ${channelName || 'Unknown'}`);
+        console.log(`📸 URL: ${url}`);
+
+        // 使用 Puppeteer 截圖
+        try {
+          const { captureChannelScreenshot } = await import('./screenshot-server.js');
+
+          // 執行截圖
+          const screenshotUrl = await captureChannelScreenshot(channelName, url);
+
+          if (screenshotUrl) {
+            res.writeHead(200, {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            });
+            res.end(JSON.stringify({
+              success: true,
+              url: screenshotUrl
+            }));
+          } else {
+            res.writeHead(500, {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            });
+            res.end(JSON.stringify({
+              error: 'Screenshot failed',
+              message: 'Failed to capture screenshot'
+            }));
+          }
+
+        } catch (puppeteerError) {
+          console.error('❌ Puppeteer screenshot failed:', puppeteerError);
+
+          // 如果 Puppeteer 失敗，返回錯誤
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            error: 'Screenshot service failed',
+            message: puppeteerError.message
+          }));
+        }
+
+      } catch (parseError) {
+        console.error('❌ Parse error:', parseError);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Screenshot error:', error);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: error.message }));
+  }
+}

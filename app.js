@@ -4,6 +4,9 @@ import { createLogger } from './logger.js';
 // 📊 導入性能監控
 import performanceMonitor from './performance-monitor.js';
 
+// 📸 導入截圖管理器
+import screenshotManager from './channel-screenshot.js';
+
 // 創建 App 專用的 logger
 const logger = createLogger('SuperTVApp');
 
@@ -65,7 +68,6 @@ class SuperTVApp {
         this.channelManager = null;
         this.player = null;
         this.currentChannelId = null;
-        this.isChannelPanelCollapsed = false;
 
         // 🎬 全螢幕播放器相關
         this.fullscreenPlayer = null;
@@ -92,9 +94,78 @@ class SuperTVApp {
             this.setupSourceSelection();
             this.loadSettings();
 
+            // 📸 初始化截圖管理器（不阻塞主流程）
+            this.initScreenshotManager();
+
             logger.info('SuperTV initialized successfully');
         } catch (error) {
             logger.error('Failed to initialize SuperTV:', error);
+        }
+    }
+
+    /**
+     * 初始化截圖管理器（背景執行）
+     */
+    async initScreenshotManager() {
+        try {
+            // 立即初始化截圖管理器，以便載入現有截圖
+            await screenshotManager.init();
+
+            // 監聽截圖更新事件
+            window.addEventListener('channel-screenshot-updated', (event) => {
+                this.onScreenshotUpdated(event.detail);
+            });
+
+            logger.info('Screenshot manager initialized');
+        } catch (error) {
+            logger.error('Failed to initialize screenshot manager:', error);
+        }
+    }
+
+    /**
+     * 當截圖更新時的回調
+     */
+    onScreenshotUpdated({ channelName, screenshotUrl }) {
+        logger.info(`📸 Screenshot updated for channel ${channelName}, updating UI...`);
+
+        // 更新所有對應的頻道卡片（可能有多個，例如主列表和 sidebar）
+        const channelCards = document.querySelectorAll(`[data-channel-name="${channelName}"]`);
+
+        channelCards.forEach(channelCard => {
+            // 查找 thumbnail 容器
+            const thumbnail = channelCard.querySelector('.channel-thumbnail');
+
+            if (thumbnail) {
+                // 查找或創建 img 元素
+                let img = thumbnail.querySelector('img.channel-screenshot');
+
+                if (!img) {
+                    // 創建新的 img 元素
+                    img = document.createElement('img');
+                    img.className = 'channel-screenshot';
+                    img.alt = 'Channel preview';
+                    thumbnail.appendChild(img);
+                    logger.debug(`Created new img element for channel ${channelName}`);
+                }
+
+                // 更新圖片 URL（添加時間戳避免緩存）
+                img.src = `${screenshotUrl}?t=${Date.now()}`;
+
+                // 添加淡入動畫
+                img.style.opacity = '0';
+                setTimeout(() => {
+                    img.style.transition = 'opacity 0.5s ease-in';
+                    img.style.opacity = '1';
+                }, 50);
+
+                logger.debug(`Updated screenshot for channel ${channelName}`);
+            } else {
+                logger.warn(`Thumbnail container not found for channel ${channelName}`);
+            }
+        });
+
+        if (channelCards.length === 0) {
+            logger.warn(`No channel cards found for channel ${channelName}`);
         }
     }
 
@@ -104,17 +175,47 @@ class SuperTVApp {
         const channelItem = document.createElement('div');
         channelItem.className = 'channel-item';
         channelItem.dataset.channelId = channel.id;
+        channelItem.dataset.channelName = channel.name; // 添加 channel name 用於截圖查找
 
         // 添加選中狀態
         if (this.currentChannelId === channel.id) {
             channelItem.classList.add('active');
         }
 
+        // 📸 獲取截圖 URL（如果有）- 使用 channel.name 而不是 channel.id
+        const screenshotUrl = screenshotManager.getScreenshotUrl(channel.name);
+
+        // 調試：只在前 3 個頻道打印日誌
+        if (index < 3) {
+            logger.debug(`🎨 Rendering channel ${index}: ${channel.name}, screenshot: ${screenshotUrl ? 'YES' : 'NO'}`);
+            if (screenshotUrl) {
+                logger.debug(`   URL: ${screenshotUrl}`);
+            }
+        }
+
+        // 獲取頻道圖標文字
+        const iconText = this.getChannelIcon(channel.name);
+
+        // 始終創建 channel-thumbnail 容器，方便後續更新截圖
         channelItem.innerHTML = `
+            <div class="channel-thumbnail" data-channel-name="${channel.name}">
+                ${screenshotUrl ? `<img src="${screenshotUrl}" alt="${channel.name}" class="channel-screenshot">` : ''}
+            </div>
+            <div class="channel-icon ${screenshotUrl ? 'has-screenshot' : ''}">${iconText}</div>
             <div class="channel-name">${channel.name}</div>
         `;
 
         return channelItem;
+    }
+
+    /**
+     * 獲取頻道圖標（文字縮寫）
+     */
+    getChannelIcon(channelName) {
+        // 移除 HD、4K 等後綴
+        const cleanName = channelName.replace(/HD|4K|台|頻道/g, '').trim();
+        // 取前兩個字符
+        return cleanName.substring(0, 2) || channelName.substring(0, 2);
     }
 
     setupEventListeners() {
@@ -178,6 +279,14 @@ class SuperTVApp {
         if (fixVideoBtn) {
             fixVideoBtn.addEventListener('click', () => {
                 this.fixVideoDisplay();
+            });
+        }
+
+        // 📸 截圖更新按鈕（收合按鈕改為截圖更新）
+        const collapseBtn = document.getElementById('collapse-btn');
+        if (collapseBtn) {
+            collapseBtn.addEventListener('click', () => {
+                this.manualUpdateScreenshots();
             });
         }
 
@@ -282,10 +391,10 @@ class SuperTVApp {
             });
         }
 
-        // 關閉按鈕
+        // 📸 截圖更新按鈕（原關閉按鈕）
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
-                this.closeSidebar();
+                this.manualUpdateScreenshots();
             });
         }
 
@@ -773,7 +882,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         return this.loadSource('yuanbao');
     }
 
-    processPlaylistText(playlistText, sourceName = '黃金直播源') {
+    async processPlaylistText(playlistText, sourceName = '黃金直播源') {
         logger.debug('Processing playlist text:', playlistText.substring(0, 200) + '...');
 
         // Initialize channel manager with the data
@@ -800,6 +909,44 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
 
         // 💾 保存頻道列表狀態，以便用戶返回時能看到
         this.saveChannelListState();
+
+        // 📸 載入現有截圖並更新 UI
+        await this.loadExistingScreenshots();
+
+        // 📸 啟動截圖任務（背景執行）
+        this.startScreenshotTask();
+    }
+
+    /**
+     * 📸 載入現有截圖並更新 UI
+     */
+    async loadExistingScreenshots() {
+        try {
+            // 確保截圖管理器已初始化
+            if (!screenshotManager.screenshotMetadata || screenshotManager.screenshotMetadata.size === 0) {
+                await screenshotManager.loadScreenshotMetadata();
+            }
+
+            // 重新渲染頻道列表以顯示截圖
+            this.renderChannelList();
+
+            logger.info(`Loaded ${screenshotManager.screenshotMetadata.size} existing screenshots`);
+        } catch (error) {
+            logger.error('Failed to load existing screenshots:', error);
+        }
+    }
+
+    /**
+     * 啟動截圖任務（背景執行，不影響用戶體驗）
+     */
+    startScreenshotTask() {
+        // 延遲 10 秒後啟動，確保不影響用戶體驗
+        setTimeout(() => {
+            if (this.channelManager && this.channelManager.channels.length > 0) {
+                screenshotManager.start(this.channelManager.channels);
+                logger.info('Screenshot task started in background');
+            }
+        }, 10000);
     }
 
     setupChannelEventListeners() {
@@ -1553,7 +1700,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
     }
 
     // 🔄 檢查並恢復頻道列表狀態
-    checkAndRestoreChannelList() {
+    async checkAndRestoreChannelList() {
         // 檢查 localStorage 中是否有已載入的頻道數據
         const savedChannels = localStorage.getItem('supertv_channels');
         const savedChannelListState = localStorage.getItem('supertv_channel_list_visible');
@@ -1580,6 +1727,9 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
                 this.renderCategoryButtons();
 
                 logger.debug(`Restored ${channelsData.length} channels from previous session`);
+
+                // 📸 載入現有截圖並更新 UI
+                await this.loadExistingScreenshots();
 
             } catch (error) {
                 logger.error('Failed to restore channel list:', error);
@@ -1739,20 +1889,250 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         });
     }
 
-    toggleChannelPanel() {
-        const panel = document.querySelector('.channel-panel');
-        const toggleBtn = document.getElementById('toggle-panel');
-        
-        this.isChannelPanelCollapsed = !this.isChannelPanelCollapsed;
-        
-        if (this.isChannelPanelCollapsed) {
-            panel.style.width = '60px';
-            panel.style.overflow = 'hidden';
-            toggleBtn.textContent = '展開';
-        } else {
-            panel.style.width = '350px';
-            panel.style.overflow = 'visible';
-            toggleBtn.textContent = '收合';
+    /**
+     * 📸 載入頻道用於截圖
+     * @param {Object} channel - 頻道對象
+     * @returns {Promise<HTMLVideoElement|null>} - 視頻元素或 null
+     */
+    async loadChannelForScreenshot(channel) {
+        return new Promise((resolve) => {
+            try {
+                // 使用隱藏的 video 元素
+                let video = document.getElementById('screenshot-video');
+
+                if (!video) {
+                    video = document.createElement('video');
+                    video.id = 'screenshot-video';
+                    video.style.cssText = `
+                        position: fixed;
+                        top: -9999px;
+                        left: -9999px;
+                        width: 640px;
+                        height: 360px;
+                        opacity: 0;
+                        pointer-events: none;
+                    `;
+                    video.muted = true;
+                    video.playsInline = true;
+                    video.autoplay = false;
+                    video.crossOrigin = 'anonymous'; // 允許跨域截圖
+                    document.body.appendChild(video);
+                }
+
+                // 確保 crossOrigin 設置（即使 video 已存在）
+                video.crossOrigin = 'anonymous';
+
+                // 清理之前的狀態
+                if (this.screenshotHls) {
+                    this.screenshotHls.destroy();
+                    this.screenshotHls = null;
+                }
+
+                // 設置超時（60 秒 - 寧可慢慢等）
+                const timeout = setTimeout(() => {
+                    logger.warn(`Screenshot video load timeout (60s) for: ${channel.name}`);
+                    if (this.screenshotHls) {
+                        this.screenshotHls.destroy();
+                        this.screenshotHls = null;
+                    }
+                    video.pause();
+                    video.src = '';
+                    resolve(null);
+                }, 60000);
+
+                // 檢查是否為 HLS 串流
+                const isHLS = channel.url.includes('.m3u8') || channel.url.includes('m3u');
+
+                // 使用代理 URL 以確保 CORS 標頭正確
+                const proxyUrl = `/api/proxy?url=${encodeURIComponent(channel.url)}`;
+                logger.debug(`Using proxy URL for screenshot: ${proxyUrl}`);
+
+                if (isHLS && typeof Hls !== 'undefined' && Hls.isSupported()) {
+                    // 使用 HLS.js
+                    this.screenshotHls = new Hls({
+                        enableWorker: true,
+                        lowLatencyMode: false,
+                        backBufferLength: 0,
+                        maxBufferLength: 10,
+                        xhrSetup: function(xhr, url) {
+                            // 不設置 withCredentials，避免 CORS 問題
+                            xhr.withCredentials = false;
+                        }
+                    });
+
+                    this.screenshotHls.on(Hls.Events.ERROR, (event, data) => {
+                        if (data.fatal) {
+                            logger.error(`HLS error for screenshot: ${channel.name}`, data.details);
+                            clearTimeout(timeout);
+                            this.screenshotHls.destroy();
+                            this.screenshotHls = null;
+                            resolve(null);
+                        }
+                    });
+
+                    this.screenshotHls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        video.play().catch(() => {
+                            clearTimeout(timeout);
+                            resolve(null);
+                        });
+                    });
+
+                    // 當視頻可以播放時
+                    video.oncanplay = () => {
+                        logger.debug(`Video canplay event for: ${channel.name}`);
+                    };
+
+                    // 使用 timeupdate 事件確保視頻真的在播放
+                    let hasResolved = false;
+                    video.ontimeupdate = () => {
+                        if (hasResolved) return;
+
+                        // 確保視頻時間 > 2 秒（真的在播放，且有足夠的內容）
+                        if (video.currentTime > 2.0) {
+                            logger.info(`✅ Video playing, currentTime: ${video.currentTime.toFixed(2)}s for: ${channel.name}`);
+                            hasResolved = true;
+
+                            // 再等待 3 秒讓畫面穩定，確保不是黑屏
+                            setTimeout(() => {
+                                clearTimeout(timeout);
+                                logger.info(`📸 Ready to capture screenshot for: ${channel.name}`);
+                                resolve(video);
+                            }, 3000);
+                        }
+                    };
+
+                    this.screenshotHls.loadSource(proxyUrl);
+                    this.screenshotHls.attachMedia(video);
+
+                } else {
+                    // 使用原生播放器
+                    video.oncanplay = () => {
+                        logger.debug(`Video canplay event for: ${channel.name}`);
+                    };
+
+                    // 使用 timeupdate 事件確保視頻真的在播放
+                    let hasResolved = false;
+                    video.ontimeupdate = () => {
+                        if (hasResolved) return;
+
+                        if (video.currentTime > 2.0) {
+                            logger.info(`✅ Video playing, currentTime: ${video.currentTime.toFixed(2)}s for: ${channel.name}`);
+                            hasResolved = true;
+
+                            setTimeout(() => {
+                                clearTimeout(timeout);
+                                logger.info(`📸 Ready to capture screenshot for: ${channel.name}`);
+                                resolve(video);
+                            }, 3000);
+                        }
+                    };
+
+                    video.onerror = () => {
+                        clearTimeout(timeout);
+                        resolve(null);
+                    };
+
+                    video.src = proxyUrl;
+                    video.play().catch(() => {
+                        clearTimeout(timeout);
+                        resolve(null);
+                    });
+                }
+
+            } catch (error) {
+                logger.error(`Failed to load channel for screenshot: ${channel.name}`, error);
+                resolve(null);
+            }
+        });
+    }
+
+    /**
+     * 📸 手動觸發截圖更新
+     * 獨立功能，不影響背景 5 分鐘自動更新
+     */
+    async manualUpdateScreenshots() {
+        // 支援兩個按鈕：收合按鈕和 Sidebar 關閉按鈕
+        const collapseBtn = document.getElementById('collapse-btn');
+        const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
+        const btn = collapseBtn || sidebarCloseBtn;
+
+        if (!this.channelManager || !this.channelManager.channels.length) {
+            logger.warn('No channels loaded, cannot update screenshots');
+            alert('請先載入頻道列表');
+            return;
+        }
+
+        // 檢查是否正在更新
+        if (btn && btn.dataset.updating === 'true') {
+            logger.warn('Screenshot update already in progress');
+            return;
+        }
+
+        // 設置更新狀態
+        if (btn) {
+            btn.dataset.updating = 'true';
+            btn.disabled = true;
+            btn.textContent = '📸 更新中...';
+        }
+
+        logger.info('🎬 Manual screenshot update started');
+
+        try {
+            // 獲取當前顯示的頻道列表
+            const channels = this.channelManager.channels;
+            let completed = 0;
+            let failed = 0;
+
+            // 逐一更新所有頻道截圖
+            for (let i = 0; i < channels.length; i++) {
+                const channel = channels[i];
+
+                // 更新按鈕文字顯示進度
+                if (btn) {
+                    btn.textContent = `📸 更新中 ${i + 1}/${channels.length}`;
+                }
+
+                try {
+                    logger.info(`📸 Updating screenshot ${i + 1}/${channels.length}: ${channel.name}`);
+
+                    // 先播放頻道，然後從正在播放的視頻截圖
+                    const videoElement = await this.loadChannelForScreenshot(channel);
+
+                    // 調用截圖管理器的完整上傳方法（截圖 + 上傳到 Supabase）
+                    const success = await screenshotManager.captureAndUploadScreenshot(channel, videoElement);
+
+                    if (success) {
+                        completed++;
+                        logger.info(`✅ Screenshot updated and uploaded: ${channel.name}`);
+                    } else {
+                        failed++;
+                        logger.warn(`❌ Failed to update screenshot: ${channel.name}`);
+                    }
+
+                    // 每個截圖之間延遲 2 秒，確保資源釋放
+                    if (i < channels.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+                } catch (error) {
+                    failed++;
+                    logger.error(`Error updating screenshot for ${channel.name}:`, error);
+                }
+            }
+
+            // 完成後顯示結果
+            logger.info(`🎉 Screenshot update completed: ${completed} success, ${failed} failed`);
+            alert(`截圖更新完成！\n成功：${completed} 個\n失敗：${failed} 個`);
+
+        } catch (error) {
+            logger.error('Error during manual screenshot update:', error);
+            alert('截圖更新過程中發生錯誤，請查看 Console');
+        } finally {
+            // 恢復按鈕狀態
+            if (btn) {
+                btn.dataset.updating = 'false';
+                btn.disabled = false;
+                btn.textContent = '📸 截圖更新';
+            }
         }
     }
 
@@ -1866,8 +2246,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
     saveSettings() {
         // Save app-specific settings
         const settings = {
-            lastChannelId: this.currentChannelId,
-            panelCollapsed: this.isChannelPanelCollapsed
+            lastChannelId: this.currentChannelId
         };
         localStorage.setItem('supertv-app-settings', JSON.stringify(settings));
     }

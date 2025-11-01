@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase 連接測試</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .test-section h2 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status.pending {
+            background: #ffc107;
+            color: #000;
+        }
+
+        .status.success {
+            background: #28a745;
+            color: white;
+        }
+
+        .status.error {
+            background: #dc3545;
+            color: white;
+        }
+
+        .result {
+            margin-top: 10px;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .result.success {
+            border-left: 3px solid #28a745;
+        }
+
+        .result.error {
+            border-left: 3px solid #dc3545;
+            color: #dc3545;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .progress {
+            margin-top: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .env-check {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .env-check code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Supabase 連接測試</h1>
+        <p class="subtitle">測試 SuperTV 與 Supabase 的整合狀態</p>
+
+        <div class="env-check" id="env-check">
+            <strong>⚠️ 環境變數檢查</strong>
+            <div id="env-status">檢查中...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>
+                1. Supabase 客戶端初始化
+                <span class="status pending" id="status-1">等待中</span>
+            </h2>
+            <div class="result" id="result-1" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>
+                2. 匿名登入測試
+                <span class="status pending" id="status-2">等待中</span>
+            </h2>
+            <div class="result" id="result-2" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>
+                3. 資料庫連接測試
+                <span class="status pending" id="status-3">等待中</span>
+            </h2>
+            <div class="result" id="result-3" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>
+                4. Storage 連接測試
+                <span class="status pending" id="status-4">等待中</span>
+            </h2>
+            <div class="result" id="result-4" style="display: none;"></div>
+        </div>
+
+        <button id="run-test" onclick="runTests()">開始測試</button>
+        <div class="progress" id="progress"></div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+        window.supabaseClient = null;
+
+        // 檢查環境變數
+        function checkEnv() {
+            const url = import.meta.env.VITE_SUPABASE_URL;
+            const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+            const envStatus = document.getElementById('env-status');
+
+            if (!url || !key) {
+                envStatus.innerHTML = `
+                    ❌ 環境變數未設置！<br>
+                    請確保 <code>.env</code> 文件包含：<br>
+                    <code>VITE_SUPABASE_URL</code><br>
+                    <code>VITE_SUPABASE_ANON_KEY</code>
+                `;
+                return false;
+            }
+
+            envStatus.innerHTML = `
+                ✅ 環境變數已設置<br>
+                URL: <code>${url.substring(0, 30)}...</code>
+            `;
+            return true;
+        }
+
+        // 測試 1: 初始化客戶端
+        async function test1() {
+            const status = document.getElementById('status-1');
+            const result = document.getElementById('result-1');
+
+            try {
+                status.textContent = '執行中...';
+                status.className = 'status pending';
+
+                const url = import.meta.env.VITE_SUPABASE_URL;
+                const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+                window.supabaseClient = createClient(url, key);
+
+                status.textContent = '成功';
+                status.className = 'status success';
+                result.className = 'result success';
+                result.style.display = 'block';
+                result.innerHTML = `
+✅ Supabase 客戶端初始化成功<br>
+URL: ${url}<br>
+狀態: 已連接
+                `;
+                return true;
+            } catch (error) {
+                status.textContent = '失敗';
+                status.className = 'status error';
+                result.className = 'result error';
+                result.style.display = 'block';
+                result.textContent = `❌ 錯誤: ${error.message}`;
+                return false;
+            }
+        }
+
+        // 測試 2: 匿名登入
+        async function test2() {
+            const status = document.getElementById('status-2');
+            const result = document.getElementById('result-2');
+
+            try {
+                status.textContent = '執行中...';
+                status.className = 'status pending';
+
+                const { data, error } = await window.supabaseClient.auth.signInAnonymously();
+
+                if (error) throw error;
+
+                status.textContent = '成功';
+                status.className = 'status success';
+                result.className = 'result success';
+                result.style.display = 'block';
+                result.innerHTML = `
+✅ 匿名登入成功<br>
+用戶 ID: ${data.user.id}<br>
+角色: ${data.user.role}<br>
+創建時間: ${new Date(data.user.created_at).toLocaleString('zh-TW')}
+                `;
+                return true;
+            } catch (error) {
+                status.textContent = '失敗';
+                status.className = 'status error';
+                result.className = 'result error';
+                result.style.display = 'block';
+                result.textContent = `❌ 錯誤: ${error.message}`;
+                return false;
+            }
+        }
+
+        // 測試 3: 資料庫連接
+        async function test3() {
+            const status = document.getElementById('status-3');
+            const result = document.getElementById('result-3');
+
+            try {
+                status.textContent = '執行中...';
+                status.className = 'status pending';
+
+                // 嘗試查詢 channel_screenshots 表
+                const { data, error } = await window.supabaseClient
+                    .from('channel_screenshots')
+                    .select('count')
+                    .limit(1);
+
+                if (error) throw error;
+
+                status.textContent = '成功';
+                status.className = 'status success';
+                result.className = 'result success';
+                result.style.display = 'block';
+                result.innerHTML = `
+✅ 資料庫連接成功<br>
+表格: channel_screenshots<br>
+狀態: 可訪問<br>
+提示: 表格已正確創建並配置 RLS
+                `;
+                return true;
+            } catch (error) {
+                status.textContent = '失敗';
+                status.className = 'status error';
+                result.className = 'result error';
+                result.style.display = 'block';
+                result.innerHTML = `
+❌ 錯誤: ${error.message}<br><br>
+可能原因：<br>
+1. 資料庫表格未創建（請執行 supabase-schema.sql）<br>
+2. RLS 政策配置錯誤<br>
+3. 網路連接問題
+                `;
+                return false;
+            }
+        }
+
+        // 測試 4: Storage 連接
+        async function test4() {
+            const status = document.getElementById('status-4');
+            const result = document.getElementById('result-4');
+
+            try {
+                status.textContent = '執行中...';
+                status.className = 'status pending';
+
+                // 列出 bucket
+                const { data, error } = await window.supabaseClient
+                    .storage
+                    .listBuckets();
+
+                if (error) throw error;
+
+                const screenshotBucket = data.find(b => b.name === 'channel-screenshots');
+
+                if (!screenshotBucket) {
+                    throw new Error('channel-screenshots bucket 不存在');
+                }
+
+                status.textContent = '成功';
+                status.className = 'status success';
+                result.className = 'result success';
+                result.style.display = 'block';
+                result.innerHTML = `
+✅ Storage 連接成功<br>
+Bucket: channel-screenshots<br>
+公開訪問: ${screenshotBucket.public ? '是' : '否'}<br>
+創建時間: ${new Date(screenshotBucket.created_at).toLocaleString('zh-TW')}
+                `;
+                return true;
+            } catch (error) {
+                status.textContent = '失敗';
+                status.className = 'status error';
+                result.className = 'result error';
+                result.style.display = 'block';
+                result.innerHTML = `
+❌ 錯誤: ${error.message}<br><br>
+可能原因：<br>
+1. Storage bucket 未創建<br>
+2. Bucket 名稱錯誤（應為 'channel-screenshots'）<br>
+3. 權限配置錯誤
+                `;
+                return false;
+            }
+        }
+
+        // 執行所有測試
+        window.runTests = async function() {
+            const button = document.getElementById('run-test');
+            const progress = document.getElementById('progress');
+
+            button.disabled = true;
+            button.textContent = '測試中...';
+
+            if (!checkEnv()) {
+                button.disabled = false;
+                button.textContent = '重新測試';
+                return;
+            }
+
+            progress.textContent = '正在執行測試...';
+
+            const results = [];
+
+            // 測試 1
+            progress.textContent = '測試 1/4: 初始化客戶端...';
+            results.push(await test1());
+            await new Promise(r => setTimeout(r, 500));
+
+            // 測試 2
+            if (results[0]) {
+                progress.textContent = '測試 2/4: 匿名登入...';
+                results.push(await test2());
+                await new Promise(r => setTimeout(r, 500));
+            }
+
+            // 測試 3
+            if (results[1]) {
+                progress.textContent = '測試 3/4: 資料庫連接...';
+                results.push(await test3());
+                await new Promise(r => setTimeout(r, 500));
+            }
+
+            // 測試 4
+            if (results[2]) {
+                progress.textContent = '測試 4/4: Storage 連接...';
+                results.push(await test4());
+                await new Promise(r => setTimeout(r, 500));
+            }
+
+            const allPassed = results.every(r => r);
+
+            if (allPassed) {
+                progress.innerHTML = '🎉 <strong>所有測試通過！</strong> Supabase 整合成功！';
+                progress.style.color = '#28a745';
+            } else {
+                progress.innerHTML = '⚠️ 部分測試失敗，請查看上方錯誤訊息';
+                progress.style.color = '#dc3545';
+            }
+
+            button.disabled = false;
+            button.textContent = '重新測試';
+        };
+
+        // 頁面載入時檢查環境變數
+        checkEnv();
+    </script>
+</body>
+</html>
+

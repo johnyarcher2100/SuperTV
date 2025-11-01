@@ -1,6 +1,7 @@
 {
   "name": "supertv-player",
   "version": "1.0.0",
+  "type": "module",
   "description": "多格式直播播放器 - 支援 HLS 和多種視頻格式",
   "main": "index.html",
   "scripts": {
@@ -23,11 +24,13 @@
     "@fullhuman/postcss-purgecss": "^7.0.2",
     "cssnano": "^7.1.2",
     "postcss": "^8.5.6",
+    "puppeteer": "^24.27.0",
     "vite": "^6.4.1",
     "vite-plugin-pwa": "^1.1.0",
     "workbox-window": "^7.3.0"
   },
   "dependencies": {
-    "hls.js": "^1.4.12"
+    "@supabase/supabase-js": "^2.78.0",
+    "hls.js": "^1.6.14"
   }
 }

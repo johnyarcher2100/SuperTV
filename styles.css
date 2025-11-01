@@ -383,13 +383,31 @@ body {
     color: rgba(255,255,255,0.7);
 }
 
-.toggle-btn {
-    background: rgba(255,255,255,0.2);
+/* 📸 截圖更新按鈕 */
+.update-screenshots-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border: none;
     color: white;
-    padding: 8px 12px;
-    border-radius: 5px;
+    padding: 8px 16px;
+    border-radius: 6px;
     cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85em;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.update-screenshots-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+}
+
+.update-screenshots-btn:disabled {
+    background: rgba(255,255,255,0.2);
+    cursor: not-allowed;
+    opacity: 0.6;
+    transform: none;
 }
 
 /* Channel categories */
@@ -398,6 +416,31 @@ body {
     flex-wrap: wrap;
     gap: 5px;
     margin-bottom: 15px;
+}
+
+/* 收合按鈕（改為截圖更新） */
+.collapse-btn {
+    background: rgba(0, 122, 255, 0.9);
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
+.collapse-btn:hover {
+    background: rgba(0, 122, 255, 1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.5);
+}
+
+.collapse-btn:active {
+    transform: translateY(0);
 }
 
 /* 分類按鈕區域 */
@@ -474,7 +517,6 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    /* 固定小尺寸，不使用 aspect-ratio */
     padding: 6px 4px;
     background: linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.08));
     border: 1px solid rgba(255,255,255,0.15);
@@ -482,13 +524,14 @@ body {
     cursor: pointer;
     transition: all 0.3s ease;
     text-align: center;
-    /* 固定高度，讓卡片更扁平 */
+    /* 維持原本高度 */
     height: 80px;
     gap: 4px;
-    width: 100%; /* 確保不超出網格 */
+    width: 100%;
     max-width: 100%;
     box-sizing: border-box;
     overflow: hidden;
+    position: relative;
 }
 
 .channel-item:hover {
@@ -504,7 +547,53 @@ body {
     box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
 }
 
-/* 頻道圖標容器 - 固定小尺寸 */
+/* 📸 頻道縮圖容器 - 作為背景層 */
+.channel-thumbnail {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 8px;
+    z-index: 0;
+}
+
+/* 📸 頻道截圖 - 作為背景圖 */
+.channel-screenshot {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    animation: fadeIn 0.5s ease-in forwards;
+    filter: brightness(0.9); /* 稍微變暗，讓文字更清晰 */
+}
+
+@keyframes fadeIn {
+    to {
+        opacity: 1; /* 完全不透明，讓截圖完全顯示 */
+    }
+}
+
+/* 頻道圖標（文字縮寫） - 保持在中間 */
+.channel-icon {
+    font-size: 1.2em;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    user-select: none;
+    z-index: 1;
+    position: relative;
+    transition: opacity 0.3s ease;
+}
+
+/* 當有截圖時，隱藏頻道圖標 */
+.channel-icon.has-screenshot {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* 頻道圖標容器 - 固定小尺寸（保留向後兼容） */
 .channel-logo-container {
     width: 40px;
     height: 40px;
@@ -544,6 +633,9 @@ body {
     display: -webkit-box;
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
+    z-index: 1;
+    position: relative;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .channel-category {
@@ -1624,24 +1716,32 @@ body.player-mode .settings-btn {
     margin: 0;
 }
 
+/* 📸 Sidebar 截圖更新按鈕（原關閉按鈕） */
 .sidebar-close-btn {
-    background: rgba(255, 255, 255, 0.1);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border: none;
     color: white;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
+    padding: 8px 16px;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 1.2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
+    font-weight: 600;
+    font-size: 0.85em;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    white-space: nowrap;
 }
 
-.sidebar-close-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-    transform: scale(1.1);
+.sidebar-close-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+}
+
+.sidebar-close-btn:disabled {
+    background: rgba(255,255,255,0.2);
+    cursor: not-allowed;
+    opacity: 0.6;
+    transform: none;
 }
 
 /* Sidebar 搜尋 */

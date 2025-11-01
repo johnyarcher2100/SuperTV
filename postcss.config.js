@@ -1,7 +1,9 @@
-const purgecss = require('@fullhuman/postcss-purgecss').default;
-const cssnano = require('cssnano');
+import purgecssPlugin from '@fullhuman/postcss-purgecss';
+import cssnano from 'cssnano';
 
-module.exports = {
+const purgecss = purgecssPlugin.default || purgecssPlugin;
+
+export default {
   plugins: [
     purgecss({
       // 掃描這些文件以找出使用的 CSS
