@@ -442,9 +442,11 @@ body {
 /* 頻道網格 - 固定 4 列 */
 .channel-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* 固定 4 列 */
-    gap: 15px;
-    padding: 10px;
+    grid-template-columns: repeat(4, 1fr); /* 一列 4 個頻道 */
+    gap: 8px;
+    padding: 8px;
+    width: 100%; /* 確保不超出容器 */
+    box-sizing: border-box;
 }
 
 /* 虛擬滾動器視口滾動條樣式 */
@@ -472,16 +474,18 @@ body {
     justify-content: center;
     align-items: center;
     /* 使用相對單位保持比例 */
-    padding: 1.2em 1em;
+    padding: 0.5em 0.3em;
     background: linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.08));
     border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 12px;
+    border-radius: 8px;
     cursor: pointer;
     transition: all 0.3s ease;
     text-align: center;
-    /* 使用 aspect-ratio 保持寬高比 */
-    aspect-ratio: 1 / 1.4;
-    gap: 0.8em;
+    /* 使用 aspect-ratio 保持寬高比 - 更窄更高 */
+    aspect-ratio: 1 / 1.3;
+    gap: 0.3em;
+    width: 100%; /* 確保不超出網格 */
+    box-sizing: border-box;
 }
 
 .channel-item:hover {
@@ -519,7 +523,7 @@ body {
 
 /* 文字圖標（當沒有圖片時使用） */
 .channel-text-icon {
-    font-size: 2em;
+    font-size: 1.2em;
     font-weight: 700;
     color: #fff;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -528,9 +532,9 @@ body {
 
 .channel-name {
     font-weight: 600;
-    font-size: 0.95em;
+    font-size: 0.7em;
     color: #fff;
-    line-height: 1.3;
+    line-height: 1.1;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
