@@ -1,9 +1,6 @@
 // 📝 導入 Logger 工具
 import { createLogger } from './logger.js';
 
-// 🚀 導入虛擬滾動器
-import VirtualScroller from './virtual-scroller.js';
-
 // 📊 導入性能監控
 import performanceMonitor from './performance-monitor.js';
 
@@ -74,9 +71,6 @@ class SuperTVApp {
         this.fullscreenPlayer = null;
         this.currentPlayingChannel = null;
 
-        // 🚀 虛擬滾動器
-        this.virtualScroller = null;
-
         this.init();
 
         // 🔄 檢查是否需要恢復頻道列表狀態
@@ -93,9 +87,6 @@ class SuperTVApp {
             const videoElement = document.getElementById('video-player');
             this.iptvPlayer = new IPTVPlayer(videoElement);
 
-            // 🚀 初始化虛擬滾動器
-            this.initVirtualScroller();
-
             // Setup UI
             this.setupEventListeners();
             this.setupSourceSelection();
@@ -107,63 +98,7 @@ class SuperTVApp {
         }
     }
 
-    initVirtualScroller() {
-        const channelListContainer = document.getElementById('channel-list');
 
-        // 根據屏幕寬度決定列數和間距（保持統一比例）
-        const getResponsiveConfig = () => {
-            const width = window.innerWidth;
-            let columns, gap;
-
-            if (width <= 768) {
-                // iPhone 和平板: 4列
-                columns = 4;
-                gap = 8;
-            } else if (width <= 1200) {
-                // 中等屏幕: 4列
-                columns = 4;
-                gap = 15;
-            } else {
-                // 大屏幕: 4列
-                columns = 4;
-                gap = 20;
-            }
-
-            // 計算卡片寬度（考慮 85% 容器寬度）
-            const containerWidth = channelListContainer.offsetWidth * 0.85;
-            const totalGap = gap * (columns - 1);
-            const cardWidth = (containerWidth - totalGap) / columns;
-
-            // 使用 aspect-ratio 1:1.4 計算高度
-            const itemHeight = cardWidth * 1.4;
-
-            return { columns, gap, itemHeight };
-        };
-
-        const config = getResponsiveConfig();
-
-        this.virtualScroller = new VirtualScroller({
-            container: channelListContainer,
-            itemHeight: config.itemHeight,
-            columns: config.columns,
-            gap: config.gap,
-            overscan: 2, // 預渲染 2 行
-            renderItem: (channel, index) => this.renderChannelItem(channel, index)
-        });
-
-        // 監聽窗口大小變化，重新配置虛擬滾動器
-        let resizeTimer;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => {
-                const newConfig = getResponsiveConfig();
-                this.virtualScroller.updateConfig(newConfig);
-                this.virtualScroller.updateItems(this.filteredChannels);
-            }, 250);
-        });
-
-        logger.info('Virtual scroller initialized with responsive config:', config);
-    }
 
     renderChannelItem(channel, index) {
         const channelItem = document.createElement('div');
@@ -1407,24 +1342,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
         const panel = document.getElementById('channel-panel');
         if (panel) {
             panel.classList.remove('hidden');
-
-            // 🔧 面板顯示後，重新計算虛擬滾動器的容器高度
-            if (this.virtualScroller) {
-                // 使用 setTimeout 確保 DOM 已更新
-                setTimeout(() => {
-                    const channelList = document.getElementById('channel-list');
-                    logger.debug('📏 Channel list dimensions:', {
-                        offsetHeight: channelList.offsetHeight,
-                        clientHeight: channelList.clientHeight,
-                        scrollHeight: channelList.scrollHeight,
-                        panelHeight: panel.offsetHeight
-                    });
-
-                    this.virtualScroller.updateContainerHeight();
-                    this.virtualScroller.update();
-                    logger.debug('Virtual scroller updated after panel shown');
-                }, 100); // 增加延遲時間確保 DOM 完全更新
-            }
+            logger.debug('Channel panel shown');
         }
     }
 
@@ -1770,12 +1688,27 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
     }
 
     renderChannelList() {
-        if (!this.channelManager || !this.virtualScroller) return;
+        if (!this.channelManager) return;
 
         const channels = this.channelManager.getChannels();
+        const channelList = document.getElementById('channel-list');
 
-        // 🚀 使用虛擬滾動器渲染頻道列表
-        this.virtualScroller.setItems(channels);
+        if (!channelList) return;
+
+        // 🎯 簡單直接：清空並重新渲染所有頻道
+        channelList.innerHTML = '';
+
+        // 創建網格容器
+        const grid = document.createElement('div');
+        grid.className = 'channel-grid';
+
+        // 渲染每個頻道
+        channels.forEach((channel, index) => {
+            const channelItem = this.renderChannelItem(channel, index);
+            grid.appendChild(channelItem);
+        });
+
+        channelList.appendChild(grid);
 
         // Update channel count
         const countElement = document.getElementById('channel-count');
@@ -1783,10 +1716,7 @@ CCTV4-中央衛視,http://220.134.196.147:8559/http/59.120.8.187:8078/hls/42/80/
             countElement.textContent = `${channels.length} 個頻道`;
         }
 
-        logger.debug('Channel list rendered with virtual scroller', {
-            total: channels.length,
-            visible: this.virtualScroller.getVisibleCount()
-        });
+        logger.debug('Channel list rendered:', channels.length);
     }
 
     renderCategoryButtons() {

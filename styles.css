@@ -432,12 +432,19 @@ body {
     box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);
 }
 
-/* Channel list - 虛擬滾動容器 */
+/* Channel list - 簡單滾動容器 */
 .channel-list {
     flex: 1;
-    overflow: hidden; /* 虛擬滾動器自己處理滾動 */
+    overflow-y: auto; /* 直接滾動 */
     padding: 10px;
-    min-height: 400px; /* 🔧 確保容器有最小高度 */
+}
+
+/* 頻道網格 - 固定 4 列 */
+.channel-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 固定 4 列 */
+    gap: 15px;
+    padding: 10px;
 }
 
 /* 虛擬滾動器視口滾動條樣式 */
